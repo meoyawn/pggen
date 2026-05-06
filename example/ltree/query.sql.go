@@ -104,7 +104,7 @@ func (q *DBQuerier) FindTopScienceChildrenAgg(ctx context.Context) (pgtype.Array
 		return zero, fmt.Errorf("query FindTopScienceChildrenAgg: %w", err)
 	}
 
-	return pgx.CollectExactlyOneRow(rows, pgx.RowTo[pgtype.Array[pgtype.Text]])
+	return pgx.CollectOneRow(rows, pgx.RowTo[pgtype.Array[pgtype.Text]])
 }
 
 const insertSampleDataSQL = `INSERT INTO test
@@ -157,5 +157,5 @@ func (q *DBQuerier) FindLtreeInput(ctx context.Context, inLtree pgtype.Text, inL
 		return zero, fmt.Errorf("query FindLtreeInput: %w", err)
 	}
 
-	return pgx.CollectExactlyOneRow(rows, pgx.RowToStructByName[FindLtreeInputRow])
+	return pgx.CollectOneRow(rows, pgx.RowToStructByName[FindLtreeInputRow])
 }

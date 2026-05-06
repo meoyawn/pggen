@@ -117,7 +117,7 @@ func (q *DBQuerier) Backtick(ctx context.Context) (string, error) {
 		return zero, fmt.Errorf("query Backtick: %w", err)
 	}
 
-	return pgx.CollectExactlyOneRow(rows, pgx.RowTo[string])
+	return pgx.CollectOneRow(rows, pgx.RowTo[string])
 }
 
 const backtickQuoteBacktickSQL = "SELECT '`\"`';"
@@ -131,7 +131,7 @@ func (q *DBQuerier) BacktickQuoteBacktick(ctx context.Context) (string, error) {
 		return zero, fmt.Errorf("query BacktickQuoteBacktick: %w", err)
 	}
 
-	return pgx.CollectExactlyOneRow(rows, pgx.RowTo[string])
+	return pgx.CollectOneRow(rows, pgx.RowTo[string])
 }
 
 const backtickNewlineSQL = "SELECT '`\n';"
@@ -145,7 +145,7 @@ func (q *DBQuerier) BacktickNewline(ctx context.Context) (string, error) {
 		return zero, fmt.Errorf("query BacktickNewline: %w", err)
 	}
 
-	return pgx.CollectExactlyOneRow(rows, pgx.RowTo[string])
+	return pgx.CollectOneRow(rows, pgx.RowTo[string])
 }
 
 const backtickDoubleQuoteSQL = "SELECT '`\"';"
@@ -159,7 +159,7 @@ func (q *DBQuerier) BacktickDoubleQuote(ctx context.Context) (string, error) {
 		return zero, fmt.Errorf("query BacktickDoubleQuote: %w", err)
 	}
 
-	return pgx.CollectExactlyOneRow(rows, pgx.RowTo[string])
+	return pgx.CollectOneRow(rows, pgx.RowTo[string])
 }
 
 const backtickBackslashNSQL = "SELECT '`\\n';"
@@ -173,7 +173,7 @@ func (q *DBQuerier) BacktickBackslashN(ctx context.Context) (string, error) {
 		return zero, fmt.Errorf("query BacktickBackslashN: %w", err)
 	}
 
-	return pgx.CollectExactlyOneRow(rows, pgx.RowTo[string])
+	return pgx.CollectOneRow(rows, pgx.RowTo[string])
 }
 
 const illegalNameSymbolsSQL = "SELECT '`\\n' as \"$\", $1 as \"foo.bar!@#$%&*()\"\"--+\";"
@@ -192,7 +192,7 @@ func (q *DBQuerier) IllegalNameSymbols(ctx context.Context, helloWorld string) (
 		return zero, fmt.Errorf("query IllegalNameSymbols: %w", err)
 	}
 
-	return pgx.CollectExactlyOneRow(rows, pgx.RowToStructByName[IllegalNameSymbolsRow])
+	return pgx.CollectOneRow(rows, pgx.RowToStructByName[IllegalNameSymbolsRow])
 }
 
 const spaceAfterSQL = `SELECT $1;`
@@ -206,7 +206,7 @@ func (q *DBQuerier) SpaceAfter(ctx context.Context, space string) (string, error
 		return zero, fmt.Errorf("query SpaceAfter: %w", err)
 	}
 
-	return pgx.CollectExactlyOneRow(rows, pgx.RowTo[string])
+	return pgx.CollectOneRow(rows, pgx.RowTo[string])
 }
 
 const badEnumNameSQL = `SELECT 'inconvertible_enum_name'::"123";`
@@ -220,7 +220,7 @@ func (q *DBQuerier) BadEnumName(ctx context.Context) (UnnamedEnum123, error) {
 		return zero, fmt.Errorf("query BadEnumName: %w", err)
 	}
 
-	return pgx.CollectExactlyOneRow(rows, pgx.RowTo[UnnamedEnum123])
+	return pgx.CollectOneRow(rows, pgx.RowTo[UnnamedEnum123])
 }
 
 const goKeywordSQL = `SELECT $1::text;`
@@ -234,5 +234,5 @@ func (q *DBQuerier) GoKeyword(ctx context.Context, go_ string) (string, error) {
 		return zero, fmt.Errorf("query GoKeyword: %w", err)
 	}
 
-	return pgx.CollectExactlyOneRow(rows, pgx.RowTo[string])
+	return pgx.CollectOneRow(rows, pgx.RowTo[string])
 }

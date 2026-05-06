@@ -115,6 +115,24 @@ func TestNewQuerier_FindFirstNames(t *testing.T) {
 	})
 }
 
+func TestNewQuerier_FindFirstAuthor(t *testing.T) {
+	conn, cleanup := pgtest.NewPostgresSchema(t, []string{"schema.sql"})
+	defer cleanup()
+
+	q := NewQuerier(conn)
+	adamsID := insertAuthor(t, q, "john", "adams")
+	insertAuthor(t, q, "george", "washington")
+
+	author, err := q.FindFirstAuthor(t.Context())
+	require.NoError(t, err)
+	assert.Equal(t, FindFirstAuthorRow{
+		AuthorID:  ptrs.Int32(adamsID),
+		FirstName: ptrs.String("john"),
+		LastName:  ptrs.String("adams"),
+		Suffix:    nil,
+	}, author)
+}
+
 func TestNewQuerier_InsertAuthorSuffix(t *testing.T) {
 	conn, cleanup := pgtest.NewPostgresSchema(t, []string{"schema.sql"})
 	defer cleanup()

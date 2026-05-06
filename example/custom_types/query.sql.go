@@ -91,7 +91,7 @@ func (q *DBQuerier) CustomTypes(ctx context.Context) (CustomTypesRow, error) {
 		return zero, fmt.Errorf("query CustomTypes: %w", err)
 	}
 
-	return pgx.CollectExactlyOneRow(rows, pgx.RowToStructByName[CustomTypesRow])
+	return pgx.CollectOneRow(rows, pgx.RowToStructByName[CustomTypesRow])
 }
 
 const customStringSQL = `SELECT 'some_text'::text;`
@@ -105,7 +105,7 @@ func (q *DBQuerier) CustomString(ctx context.Context) (mytype.String, error) {
 		return zero, fmt.Errorf("query CustomString: %w", err)
 	}
 
-	return pgx.CollectExactlyOneRow(rows, pgx.RowTo[mytype.String])
+	return pgx.CollectOneRow(rows, pgx.RowTo[mytype.String])
 }
 
 const customMyIntSQL = `SELECT '5'::my_int as int5;`
@@ -119,7 +119,7 @@ func (q *DBQuerier) CustomMyInt(ctx context.Context) (int, error) {
 		return zero, fmt.Errorf("query CustomMyInt: %w", err)
 	}
 
-	return pgx.CollectExactlyOneRow(rows, pgx.RowTo[int])
+	return pgx.CollectOneRow(rows, pgx.RowTo[int])
 }
 
 const intArraySQL = `SELECT ARRAY ['5', '6', '7']::int[] as ints;`

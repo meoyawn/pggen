@@ -112,7 +112,7 @@ func (q *DBQuerier) ArrayNested2(ctx context.Context) ([]ProductImageType, error
 		return zero, fmt.Errorf("query ArrayNested2: %w", err)
 	}
 
-	return pgx.CollectExactlyOneRow(rows, pgx.RowTo[[]ProductImageType])
+	return pgx.CollectOneRow(rows, pgx.RowTo[[]ProductImageType])
 }
 
 const nested3SQL = `SELECT

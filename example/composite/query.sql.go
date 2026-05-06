@@ -190,7 +190,7 @@ func (q *DBQuerier) InsertScreenshotBlocks(ctx context.Context, screenshotID int
 		return zero, fmt.Errorf("query InsertScreenshotBlocks: %w", err)
 	}
 
-	return pgx.CollectExactlyOneRow(rows, pgx.RowToStructByName[InsertScreenshotBlocksRow])
+	return pgx.CollectOneRow(rows, pgx.RowToStructByName[InsertScreenshotBlocksRow])
 }
 
 const arraysInputSQL = `SELECT $1::arrays;`
@@ -204,7 +204,7 @@ func (q *DBQuerier) ArraysInput(ctx context.Context, arrays Arrays) (Arrays, err
 		return zero, fmt.Errorf("query ArraysInput: %w", err)
 	}
 
-	return pgx.CollectExactlyOneRow(rows, pgx.RowTo[Arrays])
+	return pgx.CollectOneRow(rows, pgx.RowTo[Arrays])
 }
 
 const userEmailsSQL = `SELECT ('foo', 'bar@example.com')::user_email;`
@@ -218,5 +218,5 @@ func (q *DBQuerier) UserEmails(ctx context.Context) (UserEmail, error) {
 		return zero, fmt.Errorf("query UserEmails: %w", err)
 	}
 
-	return pgx.CollectExactlyOneRow(rows, pgx.RowTo[UserEmail])
+	return pgx.CollectOneRow(rows, pgx.RowTo[UserEmail])
 }

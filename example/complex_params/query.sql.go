@@ -114,7 +114,7 @@ func (q *DBQuerier) ParamArrayInt(ctx context.Context, ints []int) ([]int, error
 		return zero, fmt.Errorf("query ParamArrayInt: %w", err)
 	}
 
-	return pgx.CollectExactlyOneRow(rows, pgx.RowTo[[]int])
+	return pgx.CollectOneRow(rows, pgx.RowTo[[]int])
 }
 
 const paramNested1SQL = `SELECT $1::dimensions;`
@@ -128,7 +128,7 @@ func (q *DBQuerier) ParamNested1(ctx context.Context, dimensions Dimensions) (Di
 		return zero, fmt.Errorf("query ParamNested1: %w", err)
 	}
 
-	return pgx.CollectExactlyOneRow(rows, pgx.RowTo[Dimensions])
+	return pgx.CollectOneRow(rows, pgx.RowTo[Dimensions])
 }
 
 const paramNested2SQL = `SELECT $1::product_image_type;`
@@ -142,7 +142,7 @@ func (q *DBQuerier) ParamNested2(ctx context.Context, image ProductImageType) (P
 		return zero, fmt.Errorf("query ParamNested2: %w", err)
 	}
 
-	return pgx.CollectExactlyOneRow(rows, pgx.RowTo[ProductImageType])
+	return pgx.CollectOneRow(rows, pgx.RowTo[ProductImageType])
 }
 
 const paramNested2ArraySQL = `SELECT $1::product_image_type[];`
@@ -156,7 +156,7 @@ func (q *DBQuerier) ParamNested2Array(ctx context.Context, images []ProductImage
 		return zero, fmt.Errorf("query ParamNested2Array: %w", err)
 	}
 
-	return pgx.CollectExactlyOneRow(rows, pgx.RowTo[[]ProductImageType])
+	return pgx.CollectOneRow(rows, pgx.RowTo[[]ProductImageType])
 }
 
 const paramNested3SQL = `SELECT $1::product_image_set_type;`
@@ -170,5 +170,5 @@ func (q *DBQuerier) ParamNested3(ctx context.Context, imageSet ProductImageSetTy
 		return zero, fmt.Errorf("query ParamNested3: %w", err)
 	}
 
-	return pgx.CollectExactlyOneRow(rows, pgx.RowTo[ProductImageSetType])
+	return pgx.CollectOneRow(rows, pgx.RowTo[ProductImageSetType])
 }

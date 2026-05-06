@@ -14,6 +14,10 @@ SELECT first_name, last_name FROM author ORDER BY author_id = pggen.arg('AuthorI
 -- name: FindFirstNames :many
 SELECT first_name FROM author ORDER BY author_id = pggen.arg('AuthorID');
 
+-- FindFirstAuthor finds the first author by ID.
+-- name: FindFirstAuthor :one
+SELECT * FROM author ORDER BY author_id;
+
 -- DeleteAuthors deletes authors with a first name of "joe".
 -- name: DeleteAuthors :exec
 DELETE FROM author WHERE first_name = 'joe';

@@ -100,7 +100,7 @@ func (q *DBQuerier) CreateTenant(ctx context.Context, key string, name string) (
 		return zero, fmt.Errorf("query CreateTenant: %w", err)
 	}
 
-	return pgx.CollectExactlyOneRow(rows, pgx.RowToStructByName[CreateTenantRow])
+	return pgx.CollectOneRow(rows, pgx.RowToStructByName[CreateTenantRow])
 }
 
 const findOrdersByCustomerSQL = `SELECT *
@@ -176,7 +176,7 @@ func (q *DBQuerier) InsertCustomer(ctx context.Context, params InsertCustomerPar
 		return zero, fmt.Errorf("query InsertCustomer: %w", err)
 	}
 
-	return pgx.CollectExactlyOneRow(rows, pgx.RowToStructByName[InsertCustomerRow])
+	return pgx.CollectOneRow(rows, pgx.RowToStructByName[InsertCustomerRow])
 }
 
 const insertOrderSQL = `INSERT INTO orders (order_date, order_total, customer_id)
@@ -205,5 +205,5 @@ func (q *DBQuerier) InsertOrder(ctx context.Context, params InsertOrderParams) (
 		return zero, fmt.Errorf("query InsertOrder: %w", err)
 	}
 
-	return pgx.CollectExactlyOneRow(rows, pgx.RowToStructByName[InsertOrderRow])
+	return pgx.CollectOneRow(rows, pgx.RowToStructByName[InsertOrderRow])
 }

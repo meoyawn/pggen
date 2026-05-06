@@ -86,7 +86,7 @@ func (q *DBQuerier) GetBools(ctx context.Context, data []bool) ([]bool, error) {
 		return zero, fmt.Errorf("query GetBools: %w", err)
 	}
 
-	return pgx.CollectExactlyOneRow(rows, pgx.RowTo[[]bool])
+	return pgx.CollectOneRow(rows, pgx.RowTo[[]bool])
 }
 
 const getOneTimestampSQL = `SELECT $1::timestamp;`
@@ -100,7 +100,7 @@ func (q *DBQuerier) GetOneTimestamp(ctx context.Context, data *time.Time) (*time
 		return zero, fmt.Errorf("query GetOneTimestamp: %w", err)
 	}
 
-	return pgx.CollectExactlyOneRow(rows, pgx.RowTo[*time.Time])
+	return pgx.CollectOneRow(rows, pgx.RowTo[*time.Time])
 }
 
 const getManyTimestamptzsSQL = `SELECT *

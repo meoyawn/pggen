@@ -264,7 +264,7 @@ func (tq TemplatedQuery) EmitCollectionFunc() (string, error) {
 	case ast.ResultKindMany:
 		return "pgx.CollectRows", nil
 	case ast.ResultKindOne:
-		return "pgx.CollectExactlyOneRow", nil
+		return "pgx.CollectOneRow", nil
 	default:
 		return "", fmt.Errorf("unhandled EmitCollectionFunc type: %s", tq.ResultKind)
 	}

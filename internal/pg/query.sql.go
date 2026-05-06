@@ -307,7 +307,7 @@ func (q *DBQuerier) FindOIDByName(ctx context.Context, name string) (uint32, err
 		return zero, fmt.Errorf("query FindOIDByName: %w", err)
 	}
 
-	return pgx.CollectExactlyOneRow(rows, pgx.RowTo[uint32])
+	return pgx.CollectOneRow(rows, pgx.RowTo[uint32])
 }
 
 const findOIDNameSQL = `SELECT typname AS name
@@ -323,7 +323,7 @@ func (q *DBQuerier) FindOIDName(ctx context.Context, oid uint32) (string, error)
 		return zero, fmt.Errorf("query FindOIDName: %w", err)
 	}
 
-	return pgx.CollectExactlyOneRow(rows, pgx.RowTo[string])
+	return pgx.CollectOneRow(rows, pgx.RowTo[string])
 }
 
 const findOIDNamesSQL = `SELECT oid, typname AS name, typtype AS kind

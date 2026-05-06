@@ -25,6 +25,9 @@ type Querier interface {
 	// FindFirstNames finds one (or zero) authors by ID.
 	FindFirstNames(ctx context.Context, authorID int32) ([]*string, error)
 
+	// FindFirstAuthor finds the first author by ID.
+	FindFirstAuthor(ctx context.Context) (FindFirstAuthorRow, error)
+
 	// DeleteAuthors deletes authors with a first name of "joe".
 	DeleteAuthors(ctx context.Context) (pgconn.CommandTag, error)
 
@@ -116,7 +119,7 @@ func (q *DBQuerier) FindAuthorByID(ctx context.Context, authorID int32) (FindAut
 		return zero, fmt.Errorf("query FindAuthorByID: %w", err)
 	}
 
-	return pgx.CollectExactlyOneRow(rows, pgx.RowToStructByName[FindAuthorByIDRow])
+	return pgx.CollectOneRow(rows, pgx.RowToStructByName[FindAuthorByIDRow])
 }
 
 const findAuthorsSQL = `SELECT * FROM author WHERE first_name = $1;`
@@ -171,6 +174,27 @@ func (q *DBQuerier) FindFirstNames(ctx context.Context, authorID int32) ([]*stri
 	}
 
 	return pgx.CollectRows(rows, pgx.RowTo[*string])
+}
+
+const findFirstAuthorSQL = `SELECT * FROM author ORDER BY author_id;`
+
+type FindFirstAuthorRow struct {
+	AuthorID  *int32  `json:"author_id" db:"author_id"`
+	FirstName *string `json:"first_name" db:"first_name"`
+	LastName  *string `json:"last_name" db:"last_name"`
+	Suffix    *string `json:"suffix" db:"suffix"`
+}
+
+// FindFirstAuthor implements Querier.FindFirstAuthor.
+func (q *DBQuerier) FindFirstAuthor(ctx context.Context) (FindFirstAuthorRow, error) {
+	ctx = context.WithValue(ctx, QueryName{}, "FindFirstAuthor")
+	rows, err := q.conn.Query(ctx, findFirstAuthorSQL)
+	if err != nil {
+		var zero FindFirstAuthorRow
+		return zero, fmt.Errorf("query FindFirstAuthor: %w", err)
+	}
+
+	return pgx.CollectOneRow(rows, pgx.RowToStructByName[FindFirstAuthorRow])
 }
 
 const deleteAuthorsSQL = `DELETE FROM author WHERE first_name = 'joe';`
@@ -232,7 +256,7 @@ func (q *DBQuerier) InsertAuthor(ctx context.Context, firstName string, lastName
 		return zero, fmt.Errorf("query InsertAuthor: %w", err)
 	}
 
-	return pgx.CollectExactlyOneRow(rows, pgx.RowTo[int32])
+	return pgx.CollectOneRow(rows, pgx.RowTo[int32])
 }
 
 const insertAuthorSuffixSQL = `INSERT INTO author (first_name, last_name, suffix)
@@ -261,7 +285,7 @@ func (q *DBQuerier) InsertAuthorSuffix(ctx context.Context, params InsertAuthorS
 		return zero, fmt.Errorf("query InsertAuthorSuffix: %w", err)
 	}
 
-	return pgx.CollectExactlyOneRow(rows, pgx.RowToStructByName[InsertAuthorSuffixRow])
+	return pgx.CollectOneRow(rows, pgx.RowToStructByName[InsertAuthorSuffixRow])
 }
 
 const stringAggFirstNameSQL = `SELECT string_agg(first_name, ',') AS names FROM author WHERE author_id = $1;`
@@ -275,7 +299,7 @@ func (q *DBQuerier) StringAggFirstName(ctx context.Context, authorID int32) (*st
 		return zero, fmt.Errorf("query StringAggFirstName: %w", err)
 	}
 
-	return pgx.CollectExactlyOneRow(rows, pgx.RowTo[*string])
+	return pgx.CollectOneRow(rows, pgx.RowTo[*string])
 }
 
 const arrayAggFirstNameSQL = `SELECT array_agg(first_name) AS names FROM author WHERE author_id = $1;`
@@ -289,5 +313,5 @@ func (q *DBQuerier) ArrayAggFirstName(ctx context.Context, authorID int32) ([]st
 		return zero, fmt.Errorf("query ArrayAggFirstName: %w", err)
 	}
 
-	return pgx.CollectExactlyOneRow(rows, pgx.RowTo[[]string])
+	return pgx.CollectOneRow(rows, pgx.RowTo[[]string])
 }

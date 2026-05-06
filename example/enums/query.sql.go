@@ -153,7 +153,7 @@ func (q *DBQuerier) FindOneDeviceArray(ctx context.Context) ([]DeviceType, error
 		return zero, fmt.Errorf("query FindOneDeviceArray: %w", err)
 	}
 
-	return pgx.CollectExactlyOneRow(rows, pgx.RowTo[[]DeviceType])
+	return pgx.CollectOneRow(rows, pgx.RowTo[[]DeviceType])
 }
 
 const findManyDeviceArraySQL = `SELECT enum_range('ipad'::device_type, 'iot'::device_type) AS device_types
@@ -204,5 +204,5 @@ func (q *DBQuerier) EnumInsideComposite(ctx context.Context) (Device, error) {
 		return zero, fmt.Errorf("query EnumInsideComposite: %w", err)
 	}
 
-	return pgx.CollectExactlyOneRow(rows, pgx.RowTo[Device])
+	return pgx.CollectOneRow(rows, pgx.RowTo[Device])
 }

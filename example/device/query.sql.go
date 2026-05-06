@@ -166,7 +166,7 @@ func (q *DBQuerier) CompositeUserOne(ctx context.Context) (User, error) {
 		return zero, fmt.Errorf("query CompositeUserOne: %w", err)
 	}
 
-	return pgx.CollectExactlyOneRow(rows, pgx.RowTo[User])
+	return pgx.CollectOneRow(rows, pgx.RowTo[User])
 }
 
 const compositeUserOneTwoColsSQL = `SELECT 1 AS num, ROW (15, 'qux')::"user" AS "user";`
@@ -185,7 +185,7 @@ func (q *DBQuerier) CompositeUserOneTwoCols(ctx context.Context) (CompositeUserO
 		return zero, fmt.Errorf("query CompositeUserOneTwoCols: %w", err)
 	}
 
-	return pgx.CollectExactlyOneRow(rows, pgx.RowToStructByName[CompositeUserOneTwoColsRow])
+	return pgx.CollectOneRow(rows, pgx.RowToStructByName[CompositeUserOneTwoColsRow])
 }
 
 const compositeUserManySQL = `SELECT ROW (15, 'qux')::"user" AS "user";`

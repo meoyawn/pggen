@@ -91,7 +91,7 @@ func (q *DBQuerier) GenSeries1(ctx context.Context) (*int, error) {
 		return zero, fmt.Errorf("query GenSeries1: %w", err)
 	}
 
-	return pgx.CollectExactlyOneRow(rows, pgx.RowTo[*int])
+	return pgx.CollectOneRow(rows, pgx.RowTo[*int])
 }
 
 const genSeriesSQL = `SELECT n
@@ -121,7 +121,7 @@ func (q *DBQuerier) GenSeriesArr1(ctx context.Context) ([]int, error) {
 		return zero, fmt.Errorf("query GenSeriesArr1: %w", err)
 	}
 
-	return pgx.CollectExactlyOneRow(rows, pgx.RowTo[[]int])
+	return pgx.CollectOneRow(rows, pgx.RowTo[[]int])
 }
 
 const genSeriesArrSQL = `SELECT array_agg(n)
@@ -152,7 +152,7 @@ func (q *DBQuerier) GenSeriesStr1(ctx context.Context) (*string, error) {
 		return zero, fmt.Errorf("query GenSeriesStr1: %w", err)
 	}
 
-	return pgx.CollectExactlyOneRow(rows, pgx.RowTo[*string])
+	return pgx.CollectOneRow(rows, pgx.RowTo[*string])
 }
 
 const genSeriesStrSQL = `SELECT n::text

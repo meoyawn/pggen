@@ -19,5 +19,5 @@ func (q *DBQuerier) Alpha(ctx context.Context) (string, error) {
 		return zero, fmt.Errorf("query Alpha: %w", err)
 	}
 
-	return pgx.CollectExactlyOneRow(rows, pgx.RowTo[string])
+	return pgx.CollectOneRow(rows, pgx.RowTo[string])
 }
