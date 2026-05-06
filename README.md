@@ -105,12 +105,9 @@ Why should you use `pggen` instead of the [myriad] of Go SQL bindings?
 - pggen uses [pgx], a faster replacement for [lib/pq], the original Go Postgres
   library that's now in maintenance mode.
 
-- pggen provides a batch (aka query pipelining) interface for each generated 
-  query with [`pgx.Batch`]. Query pipelining is the reason Postgres sits atop
-  the [TechEmpower benchmarks]. Using a batch enables sending multiple queries
-  in a single network round-trip instead of one network round-trip per query.
+- pggen-generated queriers work with pgx connection transports like
+  [`*pgx.Conn`], [`pgx.Tx`], and [`*pgxpool.Pool`].
   
-[TechEmpower benchmarks]: https://www.techempower.com/benchmarks/#section=data-r20&hw=ph&test=query
 [pgx]: https://github.com/jackc/pgx
 [lib/pq]: https://github.com/lib/pq
 
@@ -368,31 +365,53 @@ Examples embedded in the repo:
         --go-type '_text=[]*github.com/jschaf/pggen/mytype.String'
     ```
     
-    pgx must be able to decode the Postgres type using the given Go type. That 
-    means the Go type must fulfill at least one of following:
+    pggen only changes the generated Go signatures and scan destinations. pgx
+    must still be able to decode the Postgres type using the given Go type.
+    That means the Go type must fulfill at least one of the following:
     
     - The Go type is a wrapper around primitive type, like `type AuthorID int`.
       pgx will use decode methods on the underlying primitive type.
 
-    - The Go type implements both [`pgtype.BinaryDecoder`] and 
-      [`pgtype.TextDecoder`]. pgx will use the correct decoder based on the wire
-      format. See the [pgtype repo] for many example types.
-      
-    - The pgx connection executing the query must have registered a data type 
-      using the Go type with [`ConnInfo.RegisterDataType`]. See the 
-      [example/custom_types test] for an example.
-      
+    - The Go type implements the scanner interfaces supported by the
+      [`pgtype.Codec`] for that Postgres type. See the [pgtype package] for
+      built-in codecs and interfaces.
+
+    - The Go type implements [`sql.Scanner`]. Query parameters can also
+      implement [`driver.Valuer`].
+
+    - The pgx connection executing the query has registered the Postgres type
+      in its pgx v5 type map. For enum, composite, and array types that
+      pgx can inspect, pggen generates `RegisterTypes(ctx, *pgx.Conn)`, which
+      calls [`pgx.Conn.LoadType`] and [`pgtype.Map.RegisterType`].
+
       ```go
-      ci := conn.ConnInfo()
-      
-      ci.RegisterDataType(pgtype.DataType{
-      	Value: new(pgtype.Int2),
-      	Name:  "my_int",
-      	OID:   myIntOID,
+      conn, err := pgx.Connect(ctx, url)
+      if err != nil {
+          return err
+      }
+      if err := RegisterTypes(ctx, conn); err != nil {
+          return err
+      }
+
+      q := NewQuerier(conn)
+      ```
+
+      If you use [`*pgxpool.Pool`], call `RegisterTypes` from
+      [`pgxpool.Config.AfterConnect`] so every pooled connection has the same
+      type map.
+
+    - The pgx connection has a custom [`pgtype.Type`] registered with a
+      [`pgtype.Codec`]. This is useful for user-defined base types and extension
+      types that need application-provided codecs. See the
+      [example/custom_types test] for an example.
+
+      ```go
+      conn.TypeMap().RegisterType(&pgtype.Type{
+          Name:  "my_int",
+          OID:   myIntOID,
+          Codec: pgtype.Int2Codec{},
       })
       ```
-      
-    - The Go type implements [`sql.Scanner`].
     
     - pgx is able to use reflection to build an object to write fields into.
 
@@ -416,11 +435,13 @@ Examples embedded in the repo:
     func (q *DBQuerier) FindCompositeUser(ctx context.Context) (User, error) {}
     ```
 
-[pgtype repo]: https://github.com/jackc/pgtype
-[`pgtype.BinaryDecoder`]: https://pkg.go.dev/github.com/jackc/pgtype#BinaryDecoder
-[`pgtype.TextDecoder`]: https://pkg.go.dev/github.com/jackc/pgtype#TextDecoder
-[`ConnInfo.RegisterDataType`]: https://pkg.go.dev/github.com/jackc/pgtype#ConnInfo.RegisterDataType
+[pgtype package]: https://pkg.go.dev/github.com/jackc/pgx/v5/pgtype
+[`pgtype.Codec`]: https://pkg.go.dev/github.com/jackc/pgx/v5/pgtype#Codec
+[`pgtype.Type`]: https://pkg.go.dev/github.com/jackc/pgx/v5/pgtype#Type
+[`pgtype.Map.RegisterType`]: https://pkg.go.dev/github.com/jackc/pgx/v5/pgtype#Map.RegisterType
+[`pgx.Conn.LoadType`]: https://pkg.go.dev/github.com/jackc/pgx/v5#Conn.LoadType
 [`sql.Scanner`]: https://golang.org/pkg/database/sql/#Scanner
+[`driver.Valuer`]: https://pkg.go.dev/database/sql/driver#Valuer
 [composite types]: https://www.postgresql.org/docs/current/rowtypes.html
 [example/custom_types test]: ./example/custom_types/query.sql_test.go
 
@@ -472,41 +493,14 @@ pggen gen go \
 
 We'll walk through the generated file `author/query.sql.go`:
 
--   The `Querier` interface defines the interface with methods for each SQL 
-    query. Each SQL query compiles into three methods, one method for to run 
-    the query by itself, and two methods to support batching a query with 
-    [`pgx.Batch`]. 
+-   The `Querier` interface defines one method for each SQL query.
   
     ```go
     // Querier is a typesafe Go interface backed by SQL queries.
-    //
-    // Methods ending with Batch enqueue a query to run later in a pgx.Batch. After
-    // calling SendBatch on pgx.Conn, pgxpool.Pool, or pgx.Tx, use the Scan methods
-    // to parse the results.
     type Querier interface {
         // FindAuthors finds authors by first name.
         FindAuthors(ctx context.Context, firstName string) ([]FindAuthorsRow, error)
-        // FindAuthorsBatch enqueues a FindAuthors query into batch to be executed
-        // later by the batch.
-        FindAuthorsBatch(batch *pgx.Batch, firstName string)
-        // FindAuthorsScan scans the result of an executed FindAuthorsBatch query.
-        FindAuthorsScan(results pgx.BatchResults) ([]FindAuthorsRow, error)
     }
-    ```
-    
-    To use the batch interface, create a `*pgx.Batch`, call the 
-    `<query_name>Batch` methods, send the batch, and finally get the results 
-    with the `<query_name>Scan` methods. See [example/author/query.sql_test.go] 
-    for complete example.
-    
-    ```sql
-	q := NewQuerier(conn)
-	batch := &pgx.Batch{}
-	q.FindAuthorsBatch(batch, "alice")
-	q.FindAuthorsBatch(batch, "bob")
-	results := conn.SendBatch(context.Background(), batch)
-	aliceAuthors, err := q.FindAuthorsScan(results)
-	bobAuthors, err := q.FindAuthorsScan(results)
     ```
 
 -   The `DBQuerier` struct implements the `Querier` interface with concrete
@@ -532,6 +526,15 @@ We'll walk through the generated file `author/query.sql.go`:
         }
     }
     ```
+
+-   For custom PostgreSQL types, pggen generates `RegisterTypes`. Call it once
+    for each `*pgx.Conn` before running queries that use generated enum,
+    composite, or array types.
+
+    ```go
+    // RegisterTypes loads custom PostgreSQL types into conn's pgx type map.
+    func RegisterTypes(ctx context.Context, conn *pgx.Conn) error {}
+    ```
     
 -   pggen embeds the SQL query formatted for a Postgres `PREPARE` statement with
     parameters indicated by `$1`, `$2`, etc. instead of 
@@ -549,10 +552,10 @@ We'll walk through the generated file `author/query.sql.go`:
     
     ```sql
     type FindAuthorsRow struct {
-        AuthorID  int32       `json:"author_id"`
-        FirstName string      `json:"first_name"`
-        LastName  string      `json:"last_name"`
-        Suffix    pgtype.Text `json:"suffix"`
+        AuthorID  int32   `json:"author_id" db:"author_id"`
+        FirstName string  `json:"first_name" db:"first_name"`
+        LastName  string  `json:"last_name" db:"last_name"`
+        Suffix    *string `json:"suffix" db:"suffix"`
     }
     ```
 
@@ -571,11 +574,12 @@ We'll walk through the generated file `author/query.sql.go`:
     that column can have  both `text` and `null` values. So, the Postgres `text`
     represented in Go can be either a `string` or `nil`. [`pgtype`] provides 
     nullable types for all built-in Postgres types. pggen tries to infer if a 
-    column is nullable or non-nullable. If a column is nullable, pggen uses a 
-    `pgtype` Go type like `pgtype.Text`. If a column is non-nullable, pggen uses
-     a more ergonomic type like `string`. pggen's nullability inference
-     implemented in [internal/pginfer/nullability.go] is rudimentary; a proper
-     approach requires a full explain-plan with some control flow analysis.
+    column is nullable or non-nullable. If a column is nullable, pggen uses a
+    nullable Go type like `*string` or a `pgtype` type. If a column is
+    non-nullable, pggen uses a more ergonomic type like `string`. pggen's
+    nullability inference implemented in [internal/pginfer/nullability.go] is
+    rudimentary; a proper approach requires a full explain-plan with some
+    control flow analysis.
     
 -   Lastly, pggen generates the implementation for each query.
 
@@ -587,36 +591,29 @@ We'll walk through the generated file `author/query.sql.go`:
     ```sql
     // FindAuthors implements Querier.FindAuthors.
     func (q *DBQuerier) FindAuthors(ctx context.Context, firstName string) ([]FindAuthorsRow, error) {
+        ctx = context.WithValue(ctx, QueryName{}, "FindAuthors")
         rows, err := q.conn.Query(ctx, findAuthorsSQL, firstName)
-        if rows != nil {
-            defer rows.Close()
-        }
         if err != nil {
-            return nil, fmt.Errorf("query FindAuthors: %w", err)
+            var zero []FindAuthorsRow
+            return zero, fmt.Errorf("query FindAuthors: %w", err)
         }
-        items := []FindAuthorsRow{}
-        for rows.Next() {
-            var item FindAuthorsRow
-            if err := rows.Scan(&item.AuthorID, &item.FirstName, &item.LastName, &item.Suffix); err != nil {
-                return nil, fmt.Errorf("scan FindAuthors row: %w", err)
-            }
-            items = append(items, item)
+
+        result, err := pgx.CollectRows(rows, pgx.RowToStructByName[FindAuthorsRow])
+        if err != nil {
+            var zero []FindAuthorsRow
+            return zero, fmt.Errorf("scan FindAuthors row: %w", err)
         }
-        if err := rows.Err(); err != nil {
-            return nil, err
-        }
-        return items, err
+        return result, nil
     }
     ```
 
-[example/author/query.sql_test.go]: ./example/author/query.sql_test.go
-[`pgx.Batch`]: https://pkg.go.dev/github.com/jackc/pgx#Batch
-[`*pgx.Conn`]: https://pkg.go.dev/github.com/jackc/pgx#Conn
-[`pgx.Tx`]: https://pkg.go.dev/github.com/jackc/pgx#Tx
-[`*pgxpool.Pool`]: https://pkg.go.dev/github.com/jackc/pgx/v4/pgxpool#Pool
+[`*pgx.Conn`]: https://pkg.go.dev/github.com/jackc/pgx/v5#Conn
+[`pgx.Tx`]: https://pkg.go.dev/github.com/jackc/pgx/v5#Tx
+[`*pgxpool.Pool`]: https://pkg.go.dev/github.com/jackc/pgx/v5/pgxpool#Pool
+[`pgxpool.Config.AfterConnect`]: https://pkg.go.dev/github.com/jackc/pgx/v5/pgxpool#Config
 [internal/casing/casing.go]: ./internal/casing/casing.go
 [internal/codegen/golang/gotype/types.go]: ./internal/codegen/golang/gotype/types.go
-[`pgtype`]: https://pkg.go.dev/github.com/jackc/pgtype
+[`pgtype`]: https://pkg.go.dev/github.com/jackc/pgx/v5/pgtype
 [internal/pginfer/nullability.go]: ./internal/pginfer/nullability.go
 
 # Contributing
