@@ -3,6 +3,7 @@ package pgtest
 import (
 	"context"
 	"math/rand/v2"
+	"net/url"
 	"os"
 	"strconv"
 	"strings"
@@ -22,7 +23,7 @@ type Option func(config *pgx.ConnConfig)
 func NewPostgresSchemaString(t *testing.T, sql string, opts ...Option) (*pgx.Conn, CleanupFunc) {
 	t.Helper()
 	// Create a new schema.
-	connStr := "user=postgres password=hunter2 host=localhost port=5555 dbname=pggen"
+	connStr := postgresConnString()
 	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
 	defer cancel()
 	conn, err := pgx.Connect(ctx, connStr)
@@ -36,10 +37,10 @@ func NewPostgresSchemaString(t *testing.T, sql string, opts ...Option) (*pgx.Con
 	t.Logf("created schema: %s", schema)
 
 	// Load SQL files into new schema.
-	connStr += " search_path=" + schema
-	connCfg, err := pgx.ParseConfig(connStr)
+	schemaConnStr := postgresSchemaConnString(connStr, schema)
+	connCfg, err := pgx.ParseConfig(schemaConnStr)
 	if err != nil {
-		t.Fatalf("parse config: %q: %s", connStr, err)
+		t.Fatalf("parse config: %q: %s", schemaConnStr, err)
 	}
 	for _, opt := range opts {
 		opt(connCfg)
@@ -67,6 +68,23 @@ func NewPostgresSchemaString(t *testing.T, sql string, opts ...Option) (*pgx.Con
 		}
 	}
 	return schemaConn, cleanup
+}
+
+func postgresConnString() string {
+	if connStr := os.Getenv("PGURL"); connStr != "" {
+		return connStr
+	}
+	return "user=postgres password=hunter2 host=localhost port=5555 dbname=pggen"
+}
+
+func postgresSchemaConnString(connStr string, schema string) string {
+	if u, err := url.Parse(connStr); err == nil && (u.Scheme == "postgres" || u.Scheme == "postgresql") {
+		q := u.Query()
+		q.Set("search_path", schema)
+		u.RawQuery = q.Encode()
+		return u.String()
+	}
+	return connStr + " search_path=" + schema
 }
 
 // NewPostgresSchema opens a connection with search_path set to a randomly

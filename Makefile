@@ -29,7 +29,7 @@ psql:
 
 .PHONY: test
 test:
-	go test ./...
+	go run ./internal/pgdocker/cmd/pgdocker -- go test ./...
 
 .PHONY: acceptance-test
 acceptance-test:
