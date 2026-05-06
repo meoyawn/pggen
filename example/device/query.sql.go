@@ -123,7 +123,8 @@ func (q *DBQuerier) FindDevicesByUser(ctx context.Context, id int) ([]FindDevice
 	ctx = context.WithValue(ctx, QueryName{}, "FindDevicesByUser")
 	rows, err := q.conn.Query(ctx, findDevicesByUserSQL, id)
 	if err != nil {
-		return nil, fmt.Errorf("query FindDevicesByUser: %w", err)
+		var zero []FindDevicesByUserRow
+		return zero, fmt.Errorf("query FindDevicesByUser: %w", err)
 	}
 
 	return pgx.CollectRows(rows, pgx.RowToStructByName[FindDevicesByUserRow])
@@ -147,7 +148,8 @@ func (q *DBQuerier) CompositeUser(ctx context.Context) ([]CompositeUserRow, erro
 	ctx = context.WithValue(ctx, QueryName{}, "CompositeUser")
 	rows, err := q.conn.Query(ctx, compositeUserSQL)
 	if err != nil {
-		return nil, fmt.Errorf("query CompositeUser: %w", err)
+		var zero []CompositeUserRow
+		return zero, fmt.Errorf("query CompositeUser: %w", err)
 	}
 
 	return pgx.CollectRows(rows, pgx.RowToStructByName[CompositeUserRow])
@@ -160,7 +162,8 @@ func (q *DBQuerier) CompositeUserOne(ctx context.Context) (User, error) {
 	ctx = context.WithValue(ctx, QueryName{}, "CompositeUserOne")
 	rows, err := q.conn.Query(ctx, compositeUserOneSQL)
 	if err != nil {
-		return User{}, fmt.Errorf("query CompositeUserOne: %w", err)
+		var zero User
+		return zero, fmt.Errorf("query CompositeUserOne: %w", err)
 	}
 
 	return pgx.CollectExactlyOneRow(rows, pgx.RowTo[User])
@@ -178,7 +181,8 @@ func (q *DBQuerier) CompositeUserOneTwoCols(ctx context.Context) (CompositeUserO
 	ctx = context.WithValue(ctx, QueryName{}, "CompositeUserOneTwoCols")
 	rows, err := q.conn.Query(ctx, compositeUserOneTwoColsSQL)
 	if err != nil {
-		return CompositeUserOneTwoColsRow{}, fmt.Errorf("query CompositeUserOneTwoCols: %w", err)
+		var zero CompositeUserOneTwoColsRow
+		return zero, fmt.Errorf("query CompositeUserOneTwoCols: %w", err)
 	}
 
 	return pgx.CollectExactlyOneRow(rows, pgx.RowToStructByName[CompositeUserOneTwoColsRow])
@@ -191,7 +195,8 @@ func (q *DBQuerier) CompositeUserMany(ctx context.Context) ([]User, error) {
 	ctx = context.WithValue(ctx, QueryName{}, "CompositeUserMany")
 	rows, err := q.conn.Query(ctx, compositeUserManySQL)
 	if err != nil {
-		return nil, fmt.Errorf("query CompositeUserMany: %w", err)
+		var zero []User
+		return zero, fmt.Errorf("query CompositeUserMany: %w", err)
 	}
 
 	return pgx.CollectRows(rows, pgx.RowTo[User])

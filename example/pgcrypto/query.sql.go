@@ -96,7 +96,8 @@ func (q *DBQuerier) FindUser(ctx context.Context, email string) (FindUserRow, er
 	ctx = context.WithValue(ctx, QueryName{}, "FindUser")
 	rows, err := q.conn.Query(ctx, findUserSQL, email)
 	if err != nil {
-		return FindUserRow{}, fmt.Errorf("query FindUser: %w", err)
+		var zero FindUserRow
+		return zero, fmt.Errorf("query FindUser: %w", err)
 	}
 
 	return pgx.CollectExactlyOneRow(rows, pgx.RowToStructByName[FindUserRow])

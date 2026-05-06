@@ -85,7 +85,8 @@ func (q *DBQuerier) CountAuthors(ctx context.Context) (*int, error) {
 	ctx = context.WithValue(ctx, QueryName{}, "CountAuthors")
 	rows, err := q.conn.Query(ctx, countAuthorsSQL)
 	if err != nil {
-		return nil, fmt.Errorf("query CountAuthors: %w", err)
+		var zero *int
+		return zero, fmt.Errorf("query CountAuthors: %w", err)
 	}
 
 	return pgx.CollectExactlyOneRow(rows, pgx.RowTo[*int])
@@ -109,7 +110,8 @@ func (q *DBQuerier) FindAuthorByID(ctx context.Context, params FindAuthorByIDPar
 	ctx = context.WithValue(ctx, QueryName{}, "FindAuthorByID")
 	rows, err := q.conn.Query(ctx, findAuthorByIDSQL, params.AuthorID)
 	if err != nil {
-		return FindAuthorByIDRow{}, fmt.Errorf("query FindAuthorByID: %w", err)
+		var zero FindAuthorByIDRow
+		return zero, fmt.Errorf("query FindAuthorByID: %w", err)
 	}
 
 	return pgx.CollectExactlyOneRow(rows, pgx.RowToStructByName[FindAuthorByIDRow])
@@ -129,7 +131,8 @@ func (q *DBQuerier) InsertAuthor(ctx context.Context, params InsertAuthorParams)
 	ctx = context.WithValue(ctx, QueryName{}, "InsertAuthor")
 	rows, err := q.conn.Query(ctx, insertAuthorSQL, params.FirstName, params.LastName)
 	if err != nil {
-		return 0, fmt.Errorf("query InsertAuthor: %w", err)
+		var zero int32
+		return zero, fmt.Errorf("query InsertAuthor: %w", err)
 	}
 
 	return pgx.CollectExactlyOneRow(rows, pgx.RowTo[int32])

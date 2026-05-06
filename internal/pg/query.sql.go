@@ -144,7 +144,8 @@ func (q *DBQuerier) FindEnumTypes(ctx context.Context, oids []uint32) ([]FindEnu
 	ctx = context.WithValue(ctx, QueryName{}, "FindEnumTypes")
 	rows, err := q.conn.Query(ctx, findEnumTypesSQL, oids)
 	if err != nil {
-		return nil, fmt.Errorf("query FindEnumTypes: %w", err)
+		var zero []FindEnumTypesRow
+		return zero, fmt.Errorf("query FindEnumTypes: %w", err)
 	}
 
 	return pgx.CollectRows(rows, pgx.RowToStructByName[FindEnumTypesRow])
@@ -191,7 +192,8 @@ func (q *DBQuerier) FindArrayTypes(ctx context.Context, oids []uint32) ([]FindAr
 	ctx = context.WithValue(ctx, QueryName{}, "FindArrayTypes")
 	rows, err := q.conn.Query(ctx, findArrayTypesSQL, oids)
 	if err != nil {
-		return nil, fmt.Errorf("query FindArrayTypes: %w", err)
+		var zero []FindArrayTypesRow
+		return zero, fmt.Errorf("query FindArrayTypes: %w", err)
 	}
 
 	return pgx.CollectRows(rows, pgx.RowToStructByName[FindArrayTypesRow])
@@ -243,7 +245,8 @@ func (q *DBQuerier) FindCompositeTypes(ctx context.Context, oids []uint32) ([]Fi
 	ctx = context.WithValue(ctx, QueryName{}, "FindCompositeTypes")
 	rows, err := q.conn.Query(ctx, findCompositeTypesSQL, oids)
 	if err != nil {
-		return nil, fmt.Errorf("query FindCompositeTypes: %w", err)
+		var zero []FindCompositeTypesRow
+		return zero, fmt.Errorf("query FindCompositeTypes: %w", err)
 	}
 
 	return pgx.CollectRows(rows, pgx.RowToStructByName[FindCompositeTypesRow])
@@ -282,7 +285,8 @@ func (q *DBQuerier) FindDescendantOIDs(ctx context.Context, oids []uint32) ([]ui
 	ctx = context.WithValue(ctx, QueryName{}, "FindDescendantOIDs")
 	rows, err := q.conn.Query(ctx, findDescendantOIDsSQL, oids)
 	if err != nil {
-		return nil, fmt.Errorf("query FindDescendantOIDs: %w", err)
+		var zero []uint32
+		return zero, fmt.Errorf("query FindDescendantOIDs: %w", err)
 	}
 
 	return pgx.CollectRows(rows, pgx.RowTo[uint32])
@@ -299,7 +303,8 @@ func (q *DBQuerier) FindOIDByName(ctx context.Context, name string) (uint32, err
 	ctx = context.WithValue(ctx, QueryName{}, "FindOIDByName")
 	rows, err := q.conn.Query(ctx, findOIDByNameSQL, name)
 	if err != nil {
-		return 0, fmt.Errorf("query FindOIDByName: %w", err)
+		var zero uint32
+		return zero, fmt.Errorf("query FindOIDByName: %w", err)
 	}
 
 	return pgx.CollectExactlyOneRow(rows, pgx.RowTo[uint32])
@@ -314,7 +319,8 @@ func (q *DBQuerier) FindOIDName(ctx context.Context, oid uint32) (string, error)
 	ctx = context.WithValue(ctx, QueryName{}, "FindOIDName")
 	rows, err := q.conn.Query(ctx, findOIDNameSQL, oid)
 	if err != nil {
-		return "", fmt.Errorf("query FindOIDName: %w", err)
+		var zero string
+		return zero, fmt.Errorf("query FindOIDName: %w", err)
 	}
 
 	return pgx.CollectExactlyOneRow(rows, pgx.RowTo[string])
@@ -335,7 +341,8 @@ func (q *DBQuerier) FindOIDNames(ctx context.Context, oid []uint32) ([]FindOIDNa
 	ctx = context.WithValue(ctx, QueryName{}, "FindOIDNames")
 	rows, err := q.conn.Query(ctx, findOIDNamesSQL, oid)
 	if err != nil {
-		return nil, fmt.Errorf("query FindOIDNames: %w", err)
+		var zero []FindOIDNamesRow
+		return zero, fmt.Errorf("query FindOIDNames: %w", err)
 	}
 
 	return pgx.CollectRows(rows, pgx.RowToStructByName[FindOIDNamesRow])

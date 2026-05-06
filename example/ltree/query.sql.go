@@ -84,7 +84,8 @@ func (q *DBQuerier) FindTopScienceChildren(ctx context.Context) ([]pgtype.Text, 
 	ctx = context.WithValue(ctx, QueryName{}, "FindTopScienceChildren")
 	rows, err := q.conn.Query(ctx, findTopScienceChildrenSQL)
 	if err != nil {
-		return nil, fmt.Errorf("query FindTopScienceChildren: %w", err)
+		var zero []pgtype.Text
+		return zero, fmt.Errorf("query FindTopScienceChildren: %w", err)
 	}
 
 	return pgx.CollectRows(rows, pgx.RowTo[pgtype.Text])
@@ -99,7 +100,8 @@ func (q *DBQuerier) FindTopScienceChildrenAgg(ctx context.Context) (pgtype.Array
 	ctx = context.WithValue(ctx, QueryName{}, "FindTopScienceChildrenAgg")
 	rows, err := q.conn.Query(ctx, findTopScienceChildrenAggSQL)
 	if err != nil {
-		return pgtype.Array[pgtype.Text]{}, fmt.Errorf("query FindTopScienceChildrenAgg: %w", err)
+		var zero pgtype.Array[pgtype.Text]
+		return zero, fmt.Errorf("query FindTopScienceChildrenAgg: %w", err)
 	}
 
 	return pgx.CollectExactlyOneRow(rows, pgx.RowTo[pgtype.Array[pgtype.Text]])
@@ -151,7 +153,8 @@ func (q *DBQuerier) FindLtreeInput(ctx context.Context, inLtree pgtype.Text, inL
 	ctx = context.WithValue(ctx, QueryName{}, "FindLtreeInput")
 	rows, err := q.conn.Query(ctx, findLtreeInputSQL, inLtree, inLtreeArray)
 	if err != nil {
-		return FindLtreeInputRow{}, fmt.Errorf("query FindLtreeInput: %w", err)
+		var zero FindLtreeInputRow
+		return zero, fmt.Errorf("query FindLtreeInput: %w", err)
 	}
 
 	return pgx.CollectExactlyOneRow(rows, pgx.RowToStructByName[FindLtreeInputRow])

@@ -12,6 +12,9 @@ ldflags := -ldflags "-X 'main.version=${version}' -X 'main.commit=${commit}'"
 .PHONY: all
 all: lint test acceptance-test
 
+.PHONY: check
+check: lint test update-acceptance-test
+
 .PHONY: start
 start:
 	docker-compose up -d

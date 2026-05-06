@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/jackc/pgx/v5/pgtype"
+	"github.com/jschaf/pggen/example/custom_types/mytype"
 	"github.com/jschaf/pggen/internal/pgtest"
 	"github.com/jschaf/pggen/internal/texts"
 	"github.com/stretchr/testify/assert"
@@ -25,6 +26,16 @@ func TestQuerier_CustomTypes(t *testing.T) {
 		}
 		assert.Equal(t, want, val)
 	})
+}
+
+func TestQuerier_CustomString(t *testing.T) {
+	conn, cleanup := pgtest.NewPostgresSchema(t, []string{"schema.sql"})
+	defer cleanup()
+	q := NewQuerier(conn)
+
+	val, err := q.CustomString(t.Context())
+	require.NoError(t, err)
+	assert.Equal(t, mytype.String("some_text"), val)
 }
 
 func TestQuerier_CustomMyInt(t *testing.T) {

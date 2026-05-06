@@ -122,7 +122,8 @@ func (q *DBQuerier) FindAllDevices(ctx context.Context) ([]FindAllDevicesRow, er
 	ctx = context.WithValue(ctx, QueryName{}, "FindAllDevices")
 	rows, err := q.conn.Query(ctx, findAllDevicesSQL)
 	if err != nil {
-		return nil, fmt.Errorf("query FindAllDevices: %w", err)
+		var zero []FindAllDevicesRow
+		return zero, fmt.Errorf("query FindAllDevices: %w", err)
 	}
 
 	return pgx.CollectRows(rows, pgx.RowToStructByName[FindAllDevicesRow])
@@ -148,7 +149,8 @@ func (q *DBQuerier) FindOneDeviceArray(ctx context.Context) ([]DeviceType, error
 	ctx = context.WithValue(ctx, QueryName{}, "FindOneDeviceArray")
 	rows, err := q.conn.Query(ctx, findOneDeviceArraySQL)
 	if err != nil {
-		return nil, fmt.Errorf("query FindOneDeviceArray: %w", err)
+		var zero []DeviceType
+		return zero, fmt.Errorf("query FindOneDeviceArray: %w", err)
 	}
 
 	return pgx.CollectExactlyOneRow(rows, pgx.RowTo[[]DeviceType])
@@ -163,7 +165,8 @@ func (q *DBQuerier) FindManyDeviceArray(ctx context.Context) ([][]DeviceType, er
 	ctx = context.WithValue(ctx, QueryName{}, "FindManyDeviceArray")
 	rows, err := q.conn.Query(ctx, findManyDeviceArraySQL)
 	if err != nil {
-		return nil, fmt.Errorf("query FindManyDeviceArray: %w", err)
+		var zero [][]DeviceType
+		return zero, fmt.Errorf("query FindManyDeviceArray: %w", err)
 	}
 
 	return pgx.CollectRows(rows, pgx.RowTo[[]DeviceType])
@@ -183,7 +186,8 @@ func (q *DBQuerier) FindManyDeviceArrayWithNum(ctx context.Context) ([]FindManyD
 	ctx = context.WithValue(ctx, QueryName{}, "FindManyDeviceArrayWithNum")
 	rows, err := q.conn.Query(ctx, findManyDeviceArrayWithNumSQL)
 	if err != nil {
-		return nil, fmt.Errorf("query FindManyDeviceArrayWithNum: %w", err)
+		var zero []FindManyDeviceArrayWithNumRow
+		return zero, fmt.Errorf("query FindManyDeviceArrayWithNum: %w", err)
 	}
 
 	return pgx.CollectRows(rows, pgx.RowToStructByName[FindManyDeviceArrayWithNumRow])
@@ -196,7 +200,8 @@ func (q *DBQuerier) EnumInsideComposite(ctx context.Context) (Device, error) {
 	ctx = context.WithValue(ctx, QueryName{}, "EnumInsideComposite")
 	rows, err := q.conn.Query(ctx, enumInsideCompositeSQL)
 	if err != nil {
-		return Device{}, fmt.Errorf("query EnumInsideComposite: %w", err)
+		var zero Device
+		return zero, fmt.Errorf("query EnumInsideComposite: %w", err)
 	}
 
 	return pgx.CollectExactlyOneRow(rows, pgx.RowTo[Device])

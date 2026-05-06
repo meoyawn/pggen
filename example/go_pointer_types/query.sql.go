@@ -87,7 +87,8 @@ func (q *DBQuerier) GenSeries1(ctx context.Context) (*int, error) {
 	ctx = context.WithValue(ctx, QueryName{}, "GenSeries1")
 	rows, err := q.conn.Query(ctx, genSeries1SQL)
 	if err != nil {
-		return nil, fmt.Errorf("query GenSeries1: %w", err)
+		var zero *int
+		return zero, fmt.Errorf("query GenSeries1: %w", err)
 	}
 
 	return pgx.CollectExactlyOneRow(rows, pgx.RowTo[*int])
@@ -101,7 +102,8 @@ func (q *DBQuerier) GenSeries(ctx context.Context) ([]*int, error) {
 	ctx = context.WithValue(ctx, QueryName{}, "GenSeries")
 	rows, err := q.conn.Query(ctx, genSeriesSQL)
 	if err != nil {
-		return nil, fmt.Errorf("query GenSeries: %w", err)
+		var zero []*int
+		return zero, fmt.Errorf("query GenSeries: %w", err)
 	}
 
 	return pgx.CollectRows(rows, pgx.RowTo[*int])
@@ -115,7 +117,8 @@ func (q *DBQuerier) GenSeriesArr1(ctx context.Context) ([]int, error) {
 	ctx = context.WithValue(ctx, QueryName{}, "GenSeriesArr1")
 	rows, err := q.conn.Query(ctx, genSeriesArr1SQL)
 	if err != nil {
-		return nil, fmt.Errorf("query GenSeriesArr1: %w", err)
+		var zero []int
+		return zero, fmt.Errorf("query GenSeriesArr1: %w", err)
 	}
 
 	return pgx.CollectExactlyOneRow(rows, pgx.RowTo[[]int])
@@ -129,7 +132,8 @@ func (q *DBQuerier) GenSeriesArr(ctx context.Context) ([][]int, error) {
 	ctx = context.WithValue(ctx, QueryName{}, "GenSeriesArr")
 	rows, err := q.conn.Query(ctx, genSeriesArrSQL)
 	if err != nil {
-		return nil, fmt.Errorf("query GenSeriesArr: %w", err)
+		var zero [][]int
+		return zero, fmt.Errorf("query GenSeriesArr: %w", err)
 	}
 
 	return pgx.CollectRows(rows, pgx.RowTo[[]int])
@@ -144,7 +148,8 @@ func (q *DBQuerier) GenSeriesStr1(ctx context.Context) (*string, error) {
 	ctx = context.WithValue(ctx, QueryName{}, "GenSeriesStr1")
 	rows, err := q.conn.Query(ctx, genSeriesStr1SQL)
 	if err != nil {
-		return nil, fmt.Errorf("query GenSeriesStr1: %w", err)
+		var zero *string
+		return zero, fmt.Errorf("query GenSeriesStr1: %w", err)
 	}
 
 	return pgx.CollectExactlyOneRow(rows, pgx.RowTo[*string])
@@ -158,7 +163,8 @@ func (q *DBQuerier) GenSeriesStr(ctx context.Context) ([]*string, error) {
 	ctx = context.WithValue(ctx, QueryName{}, "GenSeriesStr")
 	rows, err := q.conn.Query(ctx, genSeriesStrSQL)
 	if err != nil {
-		return nil, fmt.Errorf("query GenSeriesStr: %w", err)
+		var zero []*string
+		return zero, fmt.Errorf("query GenSeriesStr: %w", err)
 	}
 
 	return pgx.CollectRows(rows, pgx.RowTo[*string])

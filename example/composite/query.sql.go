@@ -132,7 +132,8 @@ func (q *DBQuerier) SearchScreenshots(ctx context.Context, params SearchScreensh
 	ctx = context.WithValue(ctx, QueryName{}, "SearchScreenshots")
 	rows, err := q.conn.Query(ctx, searchScreenshotsSQL, params.Body, params.Limit, params.Offset)
 	if err != nil {
-		return nil, fmt.Errorf("query SearchScreenshots: %w", err)
+		var zero []SearchScreenshotsRow
+		return zero, fmt.Errorf("query SearchScreenshots: %w", err)
 	}
 
 	return pgx.CollectRows(rows, pgx.RowToStructByName[SearchScreenshotsRow])
@@ -158,7 +159,8 @@ func (q *DBQuerier) SearchScreenshotsOneCol(ctx context.Context, params SearchSc
 	ctx = context.WithValue(ctx, QueryName{}, "SearchScreenshotsOneCol")
 	rows, err := q.conn.Query(ctx, searchScreenshotsOneColSQL, params.Body, params.Limit, params.Offset)
 	if err != nil {
-		return nil, fmt.Errorf("query SearchScreenshotsOneCol: %w", err)
+		var zero [][]Blocks
+		return zero, fmt.Errorf("query SearchScreenshotsOneCol: %w", err)
 	}
 
 	return pgx.CollectRows(rows, pgx.RowTo[[]Blocks])
@@ -184,7 +186,8 @@ func (q *DBQuerier) InsertScreenshotBlocks(ctx context.Context, screenshotID int
 	ctx = context.WithValue(ctx, QueryName{}, "InsertScreenshotBlocks")
 	rows, err := q.conn.Query(ctx, insertScreenshotBlocksSQL, screenshotID, body)
 	if err != nil {
-		return InsertScreenshotBlocksRow{}, fmt.Errorf("query InsertScreenshotBlocks: %w", err)
+		var zero InsertScreenshotBlocksRow
+		return zero, fmt.Errorf("query InsertScreenshotBlocks: %w", err)
 	}
 
 	return pgx.CollectExactlyOneRow(rows, pgx.RowToStructByName[InsertScreenshotBlocksRow])
@@ -197,7 +200,8 @@ func (q *DBQuerier) ArraysInput(ctx context.Context, arrays Arrays) (Arrays, err
 	ctx = context.WithValue(ctx, QueryName{}, "ArraysInput")
 	rows, err := q.conn.Query(ctx, arraysInputSQL, arrays)
 	if err != nil {
-		return Arrays{}, fmt.Errorf("query ArraysInput: %w", err)
+		var zero Arrays
+		return zero, fmt.Errorf("query ArraysInput: %w", err)
 	}
 
 	return pgx.CollectExactlyOneRow(rows, pgx.RowTo[Arrays])
@@ -210,7 +214,8 @@ func (q *DBQuerier) UserEmails(ctx context.Context) (UserEmail, error) {
 	ctx = context.WithValue(ctx, QueryName{}, "UserEmails")
 	rows, err := q.conn.Query(ctx, userEmailsSQL)
 	if err != nil {
-		return UserEmail{}, fmt.Errorf("query UserEmails: %w", err)
+		var zero UserEmail
+		return zero, fmt.Errorf("query UserEmails: %w", err)
 	}
 
 	return pgx.CollectExactlyOneRow(rows, pgx.RowTo[UserEmail])

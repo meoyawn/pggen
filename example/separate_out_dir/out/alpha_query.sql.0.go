@@ -90,7 +90,8 @@ func (q *DBQuerier) AlphaNested(ctx context.Context) (string, error) {
 	ctx = context.WithValue(ctx, QueryName{}, "AlphaNested")
 	rows, err := q.conn.Query(ctx, alphaNestedSQL)
 	if err != nil {
-		return "", fmt.Errorf("query AlphaNested: %w", err)
+		var zero string
+		return zero, fmt.Errorf("query AlphaNested: %w", err)
 	}
 
 	return pgx.CollectExactlyOneRow(rows, pgx.RowTo[string])
@@ -103,7 +104,8 @@ func (q *DBQuerier) AlphaCompositeArray(ctx context.Context) ([]Alpha, error) {
 	ctx = context.WithValue(ctx, QueryName{}, "AlphaCompositeArray")
 	rows, err := q.conn.Query(ctx, alphaCompositeArraySQL)
 	if err != nil {
-		return nil, fmt.Errorf("query AlphaCompositeArray: %w", err)
+		var zero []Alpha
+		return zero, fmt.Errorf("query AlphaCompositeArray: %w", err)
 	}
 
 	return pgx.CollectExactlyOneRow(rows, pgx.RowTo[[]Alpha])

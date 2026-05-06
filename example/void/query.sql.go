@@ -107,7 +107,8 @@ func (q *DBQuerier) VoidTwo(ctx context.Context) (string, error) {
 	ctx = context.WithValue(ctx, QueryName{}, "VoidTwo")
 	rows, err := q.conn.Query(ctx, voidTwoSQL)
 	if err != nil {
-		return "", fmt.Errorf("query VoidTwo: %w", err)
+		var zero string
+		return zero, fmt.Errorf("query VoidTwo: %w", err)
 	}
 
 	return pgx.CollectExactlyOneRow(rows, func(row pgx.CollectableRow) (string, error) {
@@ -131,7 +132,8 @@ func (q *DBQuerier) VoidThree(ctx context.Context) (VoidThreeRow, error) {
 	ctx = context.WithValue(ctx, QueryName{}, "VoidThree")
 	rows, err := q.conn.Query(ctx, voidThreeSQL)
 	if err != nil {
-		return VoidThreeRow{}, fmt.Errorf("query VoidThree: %w", err)
+		var zero VoidThreeRow
+		return zero, fmt.Errorf("query VoidThree: %w", err)
 	}
 
 	return pgx.CollectExactlyOneRow(rows, func(row pgx.CollectableRow) (VoidThreeRow, error) {
@@ -150,7 +152,8 @@ func (q *DBQuerier) VoidThree2(ctx context.Context) ([]string, error) {
 	ctx = context.WithValue(ctx, QueryName{}, "VoidThree2")
 	rows, err := q.conn.Query(ctx, voidThree2SQL)
 	if err != nil {
-		return nil, fmt.Errorf("query VoidThree2: %w", err)
+		var zero []string
+		return zero, fmt.Errorf("query VoidThree2: %w", err)
 	}
 
 	return pgx.CollectRows(rows, func(row pgx.CollectableRow) (string, error) {

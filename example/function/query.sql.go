@@ -98,7 +98,8 @@ func (q *DBQuerier) OutParams(ctx context.Context) ([]OutParamsRow, error) {
 	ctx = context.WithValue(ctx, QueryName{}, "OutParams")
 	rows, err := q.conn.Query(ctx, outParamsSQL)
 	if err != nil {
-		return nil, fmt.Errorf("query OutParams: %w", err)
+		var zero []OutParamsRow
+		return zero, fmt.Errorf("query OutParams: %w", err)
 	}
 
 	return pgx.CollectRows(rows, pgx.RowToStructByName[OutParamsRow])

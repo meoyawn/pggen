@@ -113,7 +113,8 @@ func (q *DBQuerier) Backtick(ctx context.Context) (string, error) {
 	ctx = context.WithValue(ctx, QueryName{}, "Backtick")
 	rows, err := q.conn.Query(ctx, backtickSQL)
 	if err != nil {
-		return "", fmt.Errorf("query Backtick: %w", err)
+		var zero string
+		return zero, fmt.Errorf("query Backtick: %w", err)
 	}
 
 	return pgx.CollectExactlyOneRow(rows, pgx.RowTo[string])
@@ -126,7 +127,8 @@ func (q *DBQuerier) BacktickQuoteBacktick(ctx context.Context) (string, error) {
 	ctx = context.WithValue(ctx, QueryName{}, "BacktickQuoteBacktick")
 	rows, err := q.conn.Query(ctx, backtickQuoteBacktickSQL)
 	if err != nil {
-		return "", fmt.Errorf("query BacktickQuoteBacktick: %w", err)
+		var zero string
+		return zero, fmt.Errorf("query BacktickQuoteBacktick: %w", err)
 	}
 
 	return pgx.CollectExactlyOneRow(rows, pgx.RowTo[string])
@@ -139,7 +141,8 @@ func (q *DBQuerier) BacktickNewline(ctx context.Context) (string, error) {
 	ctx = context.WithValue(ctx, QueryName{}, "BacktickNewline")
 	rows, err := q.conn.Query(ctx, backtickNewlineSQL)
 	if err != nil {
-		return "", fmt.Errorf("query BacktickNewline: %w", err)
+		var zero string
+		return zero, fmt.Errorf("query BacktickNewline: %w", err)
 	}
 
 	return pgx.CollectExactlyOneRow(rows, pgx.RowTo[string])
@@ -152,7 +155,8 @@ func (q *DBQuerier) BacktickDoubleQuote(ctx context.Context) (string, error) {
 	ctx = context.WithValue(ctx, QueryName{}, "BacktickDoubleQuote")
 	rows, err := q.conn.Query(ctx, backtickDoubleQuoteSQL)
 	if err != nil {
-		return "", fmt.Errorf("query BacktickDoubleQuote: %w", err)
+		var zero string
+		return zero, fmt.Errorf("query BacktickDoubleQuote: %w", err)
 	}
 
 	return pgx.CollectExactlyOneRow(rows, pgx.RowTo[string])
@@ -165,7 +169,8 @@ func (q *DBQuerier) BacktickBackslashN(ctx context.Context) (string, error) {
 	ctx = context.WithValue(ctx, QueryName{}, "BacktickBackslashN")
 	rows, err := q.conn.Query(ctx, backtickBackslashNSQL)
 	if err != nil {
-		return "", fmt.Errorf("query BacktickBackslashN: %w", err)
+		var zero string
+		return zero, fmt.Errorf("query BacktickBackslashN: %w", err)
 	}
 
 	return pgx.CollectExactlyOneRow(rows, pgx.RowTo[string])
@@ -183,7 +188,8 @@ func (q *DBQuerier) IllegalNameSymbols(ctx context.Context, helloWorld string) (
 	ctx = context.WithValue(ctx, QueryName{}, "IllegalNameSymbols")
 	rows, err := q.conn.Query(ctx, illegalNameSymbolsSQL, helloWorld)
 	if err != nil {
-		return IllegalNameSymbolsRow{}, fmt.Errorf("query IllegalNameSymbols: %w", err)
+		var zero IllegalNameSymbolsRow
+		return zero, fmt.Errorf("query IllegalNameSymbols: %w", err)
 	}
 
 	return pgx.CollectExactlyOneRow(rows, pgx.RowToStructByName[IllegalNameSymbolsRow])
@@ -196,7 +202,8 @@ func (q *DBQuerier) SpaceAfter(ctx context.Context, space string) (string, error
 	ctx = context.WithValue(ctx, QueryName{}, "SpaceAfter")
 	rows, err := q.conn.Query(ctx, spaceAfterSQL, space)
 	if err != nil {
-		return "", fmt.Errorf("query SpaceAfter: %w", err)
+		var zero string
+		return zero, fmt.Errorf("query SpaceAfter: %w", err)
 	}
 
 	return pgx.CollectExactlyOneRow(rows, pgx.RowTo[string])
@@ -209,7 +216,8 @@ func (q *DBQuerier) BadEnumName(ctx context.Context) (UnnamedEnum123, error) {
 	ctx = context.WithValue(ctx, QueryName{}, "BadEnumName")
 	rows, err := q.conn.Query(ctx, badEnumNameSQL)
 	if err != nil {
-		return "", fmt.Errorf("query BadEnumName: %w", err)
+		var zero UnnamedEnum123
+		return zero, fmt.Errorf("query BadEnumName: %w", err)
 	}
 
 	return pgx.CollectExactlyOneRow(rows, pgx.RowTo[UnnamedEnum123])
@@ -222,7 +230,8 @@ func (q *DBQuerier) GoKeyword(ctx context.Context, go_ string) (string, error) {
 	ctx = context.WithValue(ctx, QueryName{}, "GoKeyword")
 	rows, err := q.conn.Query(ctx, goKeywordSQL, go_)
 	if err != nil {
-		return "", fmt.Errorf("query GoKeyword: %w", err)
+		var zero string
+		return zero, fmt.Errorf("query GoKeyword: %w", err)
 	}
 
 	return pgx.CollectExactlyOneRow(rows, pgx.RowTo[string])

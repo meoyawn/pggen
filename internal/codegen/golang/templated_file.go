@@ -392,6 +392,15 @@ func (tq TemplatedQuery) EmitResultTypeInit(name string) (string, error) {
 	}
 }
 
+// EmitZeroResultInit returns a var declaration for the zero value of a result.
+func (tq TemplatedQuery) EmitZeroResultInit(name string) (string, error) {
+	result, err := tq.EmitResultType()
+	if err != nil {
+		return "", fmt.Errorf("create result type for EmitZeroResultInit: %w", err)
+	}
+	return "var " + name + " " + result, nil
+}
+
 // EmitZeroResult returns the string representing the zero value of a result.
 func (tq TemplatedQuery) EmitZeroResult() (string, error) {
 	switch tq.ResultKind {
@@ -421,7 +430,7 @@ func (tq TemplatedQuery) EmitZeroResult() (string, error) {
 		case "bool":
 			return "false", nil
 		default:
-			return tq.Outputs[0].QualType + "{}", nil // won't work for type Foo int
+			return "*new(" + tq.Outputs[0].QualType + ")", nil
 		}
 	default:
 		return "", fmt.Errorf("unhandled EmitZeroResult kind: %s", tq.ResultKind)

@@ -108,7 +108,8 @@ func (q *DBQuerier) ArrayNested2(ctx context.Context) ([]ProductImageType, error
 	ctx = context.WithValue(ctx, QueryName{}, "ArrayNested2")
 	rows, err := q.conn.Query(ctx, arrayNested2SQL)
 	if err != nil {
-		return nil, fmt.Errorf("query ArrayNested2: %w", err)
+		var zero []ProductImageType
+		return zero, fmt.Errorf("query ArrayNested2: %w", err)
 	}
 
 	return pgx.CollectExactlyOneRow(rows, pgx.RowTo[[]ProductImageType])
@@ -129,7 +130,8 @@ func (q *DBQuerier) Nested3(ctx context.Context) ([]ProductImageSetType, error) 
 	ctx = context.WithValue(ctx, QueryName{}, "Nested3")
 	rows, err := q.conn.Query(ctx, nested3SQL)
 	if err != nil {
-		return nil, fmt.Errorf("query Nested3: %w", err)
+		var zero []ProductImageSetType
+		return zero, fmt.Errorf("query Nested3: %w", err)
 	}
 
 	return pgx.CollectRows(rows, pgx.RowTo[ProductImageSetType])

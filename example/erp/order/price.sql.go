@@ -23,7 +23,8 @@ func (q *DBQuerier) FindOrdersByPrice(ctx context.Context, minTotal pgtype.Numer
 	ctx = context.WithValue(ctx, QueryName{}, "FindOrdersByPrice")
 	rows, err := q.conn.Query(ctx, findOrdersByPriceSQL, minTotal)
 	if err != nil {
-		return nil, fmt.Errorf("query FindOrdersByPrice: %w", err)
+		var zero []FindOrdersByPriceRow
+		return zero, fmt.Errorf("query FindOrdersByPrice: %w", err)
 	}
 
 	return pgx.CollectRows(rows, pgx.RowToStructByName[FindOrdersByPriceRow])
@@ -43,7 +44,8 @@ func (q *DBQuerier) FindOrdersMRR(ctx context.Context) ([]FindOrdersMRRRow, erro
 	ctx = context.WithValue(ctx, QueryName{}, "FindOrdersMRR")
 	rows, err := q.conn.Query(ctx, findOrdersMRRSQL)
 	if err != nil {
-		return nil, fmt.Errorf("query FindOrdersMRR: %w", err)
+		var zero []FindOrdersMRRRow
+		return zero, fmt.Errorf("query FindOrdersMRR: %w", err)
 	}
 
 	return pgx.CollectRows(rows, pgx.RowToStructByName[FindOrdersMRRRow])

@@ -96,7 +96,8 @@ func (q *DBQuerier) CreateTenant(ctx context.Context, key string, name string) (
 	ctx = context.WithValue(ctx, QueryName{}, "CreateTenant")
 	rows, err := q.conn.Query(ctx, createTenantSQL, key, name)
 	if err != nil {
-		return CreateTenantRow{}, fmt.Errorf("query CreateTenant: %w", err)
+		var zero CreateTenantRow
+		return zero, fmt.Errorf("query CreateTenant: %w", err)
 	}
 
 	return pgx.CollectExactlyOneRow(rows, pgx.RowToStructByName[CreateTenantRow])
@@ -118,7 +119,8 @@ func (q *DBQuerier) FindOrdersByCustomer(ctx context.Context, customerID int32) 
 	ctx = context.WithValue(ctx, QueryName{}, "FindOrdersByCustomer")
 	rows, err := q.conn.Query(ctx, findOrdersByCustomerSQL, customerID)
 	if err != nil {
-		return nil, fmt.Errorf("query FindOrdersByCustomer: %w", err)
+		var zero []FindOrdersByCustomerRow
+		return zero, fmt.Errorf("query FindOrdersByCustomer: %w", err)
 	}
 
 	return pgx.CollectRows(rows, pgx.RowToStructByName[FindOrdersByCustomerRow])
@@ -141,7 +143,8 @@ func (q *DBQuerier) FindProductsInOrder(ctx context.Context, orderID int32) ([]F
 	ctx = context.WithValue(ctx, QueryName{}, "FindProductsInOrder")
 	rows, err := q.conn.Query(ctx, findProductsInOrderSQL, orderID)
 	if err != nil {
-		return nil, fmt.Errorf("query FindProductsInOrder: %w", err)
+		var zero []FindProductsInOrderRow
+		return zero, fmt.Errorf("query FindProductsInOrder: %w", err)
 	}
 
 	return pgx.CollectRows(rows, pgx.RowToStructByName[FindProductsInOrderRow])
@@ -169,7 +172,8 @@ func (q *DBQuerier) InsertCustomer(ctx context.Context, params InsertCustomerPar
 	ctx = context.WithValue(ctx, QueryName{}, "InsertCustomer")
 	rows, err := q.conn.Query(ctx, insertCustomerSQL, params.FirstName, params.LastName, params.Email)
 	if err != nil {
-		return InsertCustomerRow{}, fmt.Errorf("query InsertCustomer: %w", err)
+		var zero InsertCustomerRow
+		return zero, fmt.Errorf("query InsertCustomer: %w", err)
 	}
 
 	return pgx.CollectExactlyOneRow(rows, pgx.RowToStructByName[InsertCustomerRow])
@@ -197,7 +201,8 @@ func (q *DBQuerier) InsertOrder(ctx context.Context, params InsertOrderParams) (
 	ctx = context.WithValue(ctx, QueryName{}, "InsertOrder")
 	rows, err := q.conn.Query(ctx, insertOrderSQL, params.OrderDate, params.OrderTotal, params.CustID)
 	if err != nil {
-		return InsertOrderRow{}, fmt.Errorf("query InsertOrder: %w", err)
+		var zero InsertOrderRow
+		return zero, fmt.Errorf("query InsertOrder: %w", err)
 	}
 
 	return pgx.CollectExactlyOneRow(rows, pgx.RowToStructByName[InsertOrderRow])

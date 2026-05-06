@@ -16,6 +16,8 @@ type QueryName struct{}
 type Querier interface {
 	CustomTypes(ctx context.Context) (CustomTypesRow, error)
 
+	CustomString(ctx context.Context) (mytype.String, error)
+
 	CustomMyInt(ctx context.Context) (int, error)
 
 	IntArray(ctx context.Context) ([][]int32, error)
@@ -85,10 +87,25 @@ func (q *DBQuerier) CustomTypes(ctx context.Context) (CustomTypesRow, error) {
 	ctx = context.WithValue(ctx, QueryName{}, "CustomTypes")
 	rows, err := q.conn.Query(ctx, customTypesSQL)
 	if err != nil {
-		return CustomTypesRow{}, fmt.Errorf("query CustomTypes: %w", err)
+		var zero CustomTypesRow
+		return zero, fmt.Errorf("query CustomTypes: %w", err)
 	}
 
 	return pgx.CollectExactlyOneRow(rows, pgx.RowToStructByName[CustomTypesRow])
+}
+
+const customStringSQL = `SELECT 'some_text'::text;`
+
+// CustomString implements Querier.CustomString.
+func (q *DBQuerier) CustomString(ctx context.Context) (mytype.String, error) {
+	ctx = context.WithValue(ctx, QueryName{}, "CustomString")
+	rows, err := q.conn.Query(ctx, customStringSQL)
+	if err != nil {
+		var zero mytype.String
+		return zero, fmt.Errorf("query CustomString: %w", err)
+	}
+
+	return pgx.CollectExactlyOneRow(rows, pgx.RowTo[mytype.String])
 }
 
 const customMyIntSQL = `SELECT '5'::my_int as int5;`
@@ -98,7 +115,8 @@ func (q *DBQuerier) CustomMyInt(ctx context.Context) (int, error) {
 	ctx = context.WithValue(ctx, QueryName{}, "CustomMyInt")
 	rows, err := q.conn.Query(ctx, customMyIntSQL)
 	if err != nil {
-		return 0, fmt.Errorf("query CustomMyInt: %w", err)
+		var zero int
+		return zero, fmt.Errorf("query CustomMyInt: %w", err)
 	}
 
 	return pgx.CollectExactlyOneRow(rows, pgx.RowTo[int])
@@ -111,7 +129,8 @@ func (q *DBQuerier) IntArray(ctx context.Context) ([][]int32, error) {
 	ctx = context.WithValue(ctx, QueryName{}, "IntArray")
 	rows, err := q.conn.Query(ctx, intArraySQL)
 	if err != nil {
-		return nil, fmt.Errorf("query IntArray: %w", err)
+		var zero [][]int32
+		return zero, fmt.Errorf("query IntArray: %w", err)
 	}
 
 	return pgx.CollectRows(rows, pgx.RowTo[[]int32])

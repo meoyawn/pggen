@@ -1,6 +1,9 @@
 -- name: CustomTypes :one
 SELECT 'some_text', 1::bigint;
 
+-- name: CustomString :one
+SELECT 'some_text'::text;
+
 -- name: CustomMyInt :one
 SELECT '5'::my_int as int5;
 
