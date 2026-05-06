@@ -5,11 +5,13 @@ import (
 
 	"github.com/jschaf/pggen/internal/pgtest"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestNewQuerier_ArrayNested2(t *testing.T) {
 	conn, cleanup := pgtest.NewPostgresSchema(t, []string{"schema.sql"})
 	defer cleanup()
+	require.NoError(t, RegisterTypes(t.Context(), conn))
 
 	q := NewQuerier(conn)
 	ctx := t.Context()
@@ -30,6 +32,7 @@ func TestNewQuerier_ArrayNested2(t *testing.T) {
 func TestNewQuerier_Nested3(t *testing.T) {
 	conn, cleanup := pgtest.NewPostgresSchema(t, []string{"schema.sql"})
 	defer cleanup()
+	require.NoError(t, RegisterTypes(t.Context(), conn))
 
 	q := NewQuerier(conn)
 	ctx := t.Context()

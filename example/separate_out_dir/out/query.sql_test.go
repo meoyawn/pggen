@@ -12,6 +12,7 @@ import (
 func TestNewQuerier_FindAuthorByID(t *testing.T) {
 	conn, cleanup := pgtest.NewPostgresSchema(t, []string{"../schema.sql"})
 	defer cleanup()
+	require.NoError(t, RegisterTypes(t.Context(), conn))
 
 	q := NewQuerier(conn)
 
@@ -25,6 +26,13 @@ func TestNewQuerier_FindAuthorByID(t *testing.T) {
 		got, err := q.Alpha(t.Context())
 		require.NoError(t, err)
 		assert.Equal(t, "alpha", got)
+	})
+
+	t.Run("AlphaCompositeArray", func(t *testing.T) {
+		key := "key"
+		got, err := q.AlphaCompositeArray(t.Context())
+		require.NoError(t, err)
+		assert.Equal(t, []Alpha{{Key: &key}}, got)
 	})
 
 	t.Run("Bravo", func(t *testing.T) {

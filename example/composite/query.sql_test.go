@@ -3,6 +3,7 @@ package composite
 import (
 	"testing"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jschaf/pggen/internal/difftest"
 	"github.com/jschaf/pggen/internal/pgtest"
@@ -14,6 +15,8 @@ import (
 func TestNewQuerier_SearchScreenshots(t *testing.T) {
 	conn, cleanup := pgtest.NewPostgresSchema(t, []string{"schema.sql"})
 	defer cleanup()
+	registerCitext(t, conn)
+	require.NoError(t, RegisterTypes(t.Context(), conn))
 
 	q := NewQuerier(conn)
 	screenshotID := 99
@@ -61,6 +64,8 @@ func TestNewQuerier_SearchScreenshots(t *testing.T) {
 func TestNewQuerier_ArraysInput(t *testing.T) {
 	conn, cleanup := pgtest.NewPostgresSchema(t, []string{"schema.sql"})
 	defer cleanup()
+	registerCitext(t, conn)
+	require.NoError(t, RegisterTypes(t.Context(), conn))
 
 	q := NewQuerier(conn)
 
@@ -80,6 +85,8 @@ func TestNewQuerier_ArraysInput(t *testing.T) {
 func TestNewQuerier_UserEmails(t *testing.T) {
 	conn, cleanup := pgtest.NewPostgresSchema(t, []string{"schema.sql"})
 	defer cleanup()
+	registerCitext(t, conn)
+	require.NoError(t, RegisterTypes(t.Context(), conn))
 
 	q := NewQuerier(conn)
 
@@ -97,4 +104,20 @@ func insertScreenshotBlock(t *testing.T, q *DBQuerier, screenID int, body string
 	row, err := q.InsertScreenshotBlocks(t.Context(), screenID, body)
 	require.NoError(t, err, "insert screenshot blocks")
 	return row
+}
+
+func registerCitext(t *testing.T, conn *pgx.Conn) {
+	t.Helper()
+	row := conn.QueryRow(t.Context(), `
+SELECT oid
+FROM pg_type
+WHERE typname = 'citext'
+  AND pg_type_is_visible(oid)`)
+	var oid uint32
+	require.NoError(t, row.Scan(&oid))
+	conn.TypeMap().RegisterType(&pgtype.Type{
+		Name:  "citext",
+		OID:   oid,
+		Codec: pgtype.TextCodec{},
+	})
 }

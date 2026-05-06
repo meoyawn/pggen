@@ -11,6 +11,7 @@ import (
 func TestNewQuerier_ParamArrayInt(t *testing.T) {
 	conn, cleanup := pgtest.NewPostgresSchema(t, []string{"schema.sql"})
 	defer cleanup()
+	require.NoError(t, RegisterTypes(t.Context(), conn))
 
 	q := NewQuerier(conn)
 	ctx := t.Context()
@@ -27,6 +28,7 @@ func TestNewQuerier_ParamArrayInt(t *testing.T) {
 func TestNewQuerier_ParamNested1(t *testing.T) {
 	conn, cleanup := pgtest.NewPostgresSchema(t, []string{"schema.sql"})
 	defer cleanup()
+	require.NoError(t, RegisterTypes(t.Context(), conn))
 
 	q := NewQuerier(conn)
 	ctx := t.Context()
@@ -43,6 +45,7 @@ func TestNewQuerier_ParamNested1(t *testing.T) {
 func TestNewQuerier_ParamNested2(t *testing.T) {
 	conn, cleanup := pgtest.NewPostgresSchema(t, []string{"schema.sql"})
 	defer cleanup()
+	require.NoError(t, RegisterTypes(t.Context(), conn))
 
 	q := NewQuerier(conn)
 	ctx := t.Context()
@@ -62,6 +65,7 @@ func TestNewQuerier_ParamNested2(t *testing.T) {
 func TestNewQuerier_ParamNested2Array(t *testing.T) {
 	conn, cleanup := pgtest.NewPostgresSchema(t, []string{"schema.sql"})
 	defer cleanup()
+	require.NoError(t, RegisterTypes(t.Context(), conn))
 
 	q := NewQuerier(conn)
 	ctx := t.Context()
@@ -81,6 +85,7 @@ func TestNewQuerier_ParamNested2Array(t *testing.T) {
 func TestNewQuerier_ParamNested3(t *testing.T) {
 	conn, cleanup := pgtest.NewPostgresSchema(t, []string{"schema.sql"})
 	defer cleanup()
+	require.NoError(t, RegisterTypes(t.Context(), conn))
 
 	q := NewQuerier(conn)
 	ctx := t.Context()
@@ -105,6 +110,7 @@ func TestNewQuerier_ParamNested3_QueryAllDataTypes(t *testing.T) {
 	conn, cleanup := pgtest.NewPostgresSchema(t, []string{"schema.sql"})
 	defer cleanup()
 	ctx := t.Context()
+	require.NoError(t, RegisterTypes(ctx, conn))
 	// dataTypes, err := QueryAllDataTypes(ctx, conn)
 	// require.NoError(t, err)
 	q := NewQuerier(conn)

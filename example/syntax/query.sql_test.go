@@ -5,11 +5,13 @@ import (
 
 	"github.com/jschaf/pggen/internal/pgtest"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestQuerier(t *testing.T) {
-	conn, cleanup := pgtest.NewPostgresSchema(t, nil)
+	conn, cleanup := pgtest.NewPostgresSchema(t, []string{"schema.sql"})
 	defer cleanup()
+	require.NoError(t, RegisterTypes(t.Context(), conn))
 	q := NewQuerier(conn)
 	ctx := t.Context()
 
@@ -32,4 +34,8 @@ func TestQuerier(t *testing.T) {
 	val, err = q.BacktickBackslashN(ctx)
 	assert.NoError(t, err, "BacktickBackslashN")
 	assert.Equal(t, "`\\n", val, "BacktickBackslashN")
+
+	enumVal, err := q.BadEnumName(ctx)
+	assert.NoError(t, err, "BadEnumName")
+	assert.Equal(t, UnnamedEnum123InconvertibleEnumName, enumVal, "BadEnumName")
 }
