@@ -85,8 +85,6 @@ func addTypeToRegister(typ string) struct{} {
 	return struct{}{}
 }
 
-
-
 const findEnumTypesSQL = `WITH enums AS (
   SELECT
     enumtypid::int8                                   AS enum_type,

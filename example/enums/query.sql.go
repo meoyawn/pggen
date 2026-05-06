@@ -103,8 +103,6 @@ func addTypeToRegister(typ string) struct{} {
 	return struct{}{}
 }
 
-
-
 var _ = addTypeToRegister("\"device_type\"")
 
 var _ = addTypeToRegister("\"device\"")

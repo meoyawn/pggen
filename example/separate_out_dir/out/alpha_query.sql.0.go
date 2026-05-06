@@ -79,8 +79,6 @@ func addTypeToRegister(typ string) struct{} {
 	return struct{}{}
 }
 
-
-
 var _ = addTypeToRegister("\"alpha\"")
 
 var _ = addTypeToRegister("\"_alpha\"")

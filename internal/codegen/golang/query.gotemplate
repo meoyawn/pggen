@@ -44,7 +44,7 @@ func NewQuerier(conn genericConn) *DBQuerier {
 	return &DBQuerier{conn: conn}
 }
 
-{{- range .Declarers}}{{- "\n\n" -}}{{ .Declare $.PkgPath }}{{ end -}}
+{{- with emitDeclarers .Declarers $.PkgPath }}{{- "\n\n" -}}{{ . }}{{- end -}}
 {{- end -}}
 
 {{- range $i, $q := .Queries -}}

@@ -95,31 +95,13 @@ func addTypeToRegister(typ string) struct{} {
 	return struct{}{}
 }
 
-
-
 var _ = addTypeToRegister("\"dimensions\"")
-
-
-
-
 
 var _ = addTypeToRegister("\"product_image_set_type\"")
 
-
-
-
-
 var _ = addTypeToRegister("\"product_image_type\"")
 
-
-
-
-
 var _ = addTypeToRegister("\"_product_image_type\"")
-
-
-
-
 
 const paramArrayIntSQL = `SELECT $1::bigint[];`
 

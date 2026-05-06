@@ -43,13 +43,6 @@ func addTypeToRegister(typ string) struct{} {
 	return struct{}{}
 }
 
-
-
 var _ = addTypeToRegister("\"foo_type\"")
 
-
-
 var _ = addTypeToRegister("\"some_table_nested\"")
-
-
-

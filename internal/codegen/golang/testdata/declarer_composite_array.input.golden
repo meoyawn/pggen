@@ -38,13 +38,6 @@ func addTypeToRegister(typ string) struct{} {
 	return struct{}{}
 }
 
-
-
 var _ = addTypeToRegister("\"some_table\"")
 
-
-
 var _ = addTypeToRegister("\"_some_array\"")
-
-
-

@@ -80,8 +80,6 @@ func addTypeToRegister(typ string) struct{} {
 	return struct{}{}
 }
 
-
-
 var _ = addTypeToRegister("\"list_item\"")
 
 var _ = addTypeToRegister("\"list_stats\"")

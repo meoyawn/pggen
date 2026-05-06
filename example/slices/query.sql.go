@@ -75,10 +75,6 @@ func addTypeToRegister(typ string) struct{} {
 	return struct{}{}
 }
 
-
-
-
-
 const getBoolsSQL = `SELECT $1::boolean[];`
 
 // GetBools implements Querier.GetBools.

@@ -71,7 +71,9 @@ func Generate(opts GenerateOptions, queryFiles []codegen.QueryFile) error {
 var queryTemplate string
 
 func parseQueryTemplate() (*template.Template, error) {
-	tmpl, err := template.New("gen_query").Parse(queryTemplate)
+	tmpl, err := template.New("gen_query").Funcs(template.FuncMap{
+		"emitDeclarers": emitDeclarers,
+	}).Parse(queryTemplate)
 	if err != nil {
 		return nil, fmt.Errorf("parse query.gotemplate: %w", err)
 	}

@@ -3,7 +3,6 @@ package golang
 import (
 	"flag"
 	"os"
-	"strings"
 	"testing"
 
 	"github.com/jschaf/pggen/internal/casing"
@@ -132,18 +131,10 @@ func TestDeclarers(t *testing.T) {
 		t.Run(tt.name+"_input", func(t *testing.T) {
 			golden := "testdata/declarer_" + tt.name + ".input.golden"
 			decls := FindInputDeclarers(tt.typ).ListAll()
-			sb := &strings.Builder{}
-			for i, decl := range decls {
-				s, err := decl.Declare(tt.pkgPath)
-				if err != nil {
-					t.Fatal(err)
-				}
-				sb.WriteString(s)
-				if i < len(decls)-1 {
-					sb.WriteString("\n\n")
-				}
+			got, err := emitDeclarers(decls, tt.pkgPath)
+			if err != nil {
+				t.Fatal(err)
 			}
-			got := sb.String()
 
 			if *update {
 				err := os.WriteFile(golden, []byte(got), 0o600)
@@ -159,18 +150,10 @@ func TestDeclarers(t *testing.T) {
 		t.Run(tt.name+"_output", func(t *testing.T) {
 			golden := "testdata/declarer_" + tt.name + ".output.golden"
 			decls := FindOutputDeclarers(tt.typ).ListAll()
-			sb := &strings.Builder{}
-			for i, decl := range decls {
-				s, err := decl.Declare(tt.pkgPath)
-				if err != nil {
-					t.Fatal(err)
-				}
-				sb.WriteString(s)
-				if i < len(decls)-1 {
-					sb.WriteString("\n\n")
-				}
+			got, err := emitDeclarers(decls, tt.pkgPath)
+			if err != nil {
+				t.Fatal(err)
 			}
-			got := sb.String()
 
 			if *update {
 				err := os.WriteFile(golden, []byte(got), 0o600)

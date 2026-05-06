@@ -44,6 +44,21 @@ func (d DeclarerSet) ListAll() []Declarer {
 	return decls
 }
 
+func emitDeclarers(decls []Declarer, pkgPath string) (string, error) {
+	declarations := make([]string, 0, len(decls))
+	for _, decl := range decls {
+		declaration, err := decl.Declare(pkgPath)
+		if err != nil {
+			return "", err
+		}
+		if strings.TrimSpace(declaration) == "" {
+			continue
+		}
+		declarations = append(declarations, declaration)
+	}
+	return strings.Join(declarations, "\n\n"), nil
+}
+
 func pgTypeNameForLoadType(name string) string {
 	return `"` + strings.ReplaceAll(name, `"`, `""`) + `"`
 }
