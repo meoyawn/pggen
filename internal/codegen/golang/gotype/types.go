@@ -206,7 +206,7 @@ func ParseOpaqueType(qualType string, pgType pg.Type) (Type, error) {
 	if isPtr {
 		bs = bs[1:]
 	}
-	idx := bytes.LastIndexByte(bs, '.')
+	idx := lastIndexByteOutsideBrackets(bs, '.')
 	name := string(bs[idx+1:])
 	var typ Type = &OpaqueType{Name: name}
 	// On array types, the PgType goes on the Array. In all other cases, it
@@ -238,6 +238,25 @@ func ParseOpaqueType(qualType string, pgType pg.Type) (Type, error) {
 	}
 
 	return typ, nil
+}
+
+func lastIndexByteOutsideBrackets(bs []byte, ch byte) int {
+	depth := 0
+	for i := len(bs) - 1; i >= 0; i-- {
+		switch bs[i] {
+		case ']':
+			depth++
+		case '[':
+			if depth > 0 {
+				depth--
+			}
+		case ch:
+			if depth == 0 {
+				return i
+			}
+		}
+	}
+	return -1
 }
 
 // MustParseKnownType creates a gotype.Type by parsing a fully qualified Go type

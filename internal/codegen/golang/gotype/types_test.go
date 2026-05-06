@@ -55,6 +55,13 @@ func TestMustParseKnownType(t *testing.T) {
 				Elem: &ImportType{PkgPath: "util/custom/times", Type: &OpaqueType{Name: "Interval"}},
 			},
 		},
+		{
+			qualType: "github.com/jackc/pgx/v5/pgtype.Array[pgtype.Text]",
+			want: &ImportType{
+				PkgPath: "github.com/jackc/pgx/v5/pgtype",
+				Type:    &OpaqueType{Name: "Array[pgtype.Text]"},
+			},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.qualType, func(t *testing.T) {
@@ -114,6 +121,12 @@ func TestQualifyType(t *testing.T) {
 			typ:      &ArrayType{Elem: &ImportType{PkgPath: "example.com/foo", Type: &OpaqueType{Name: "Bar"}}},
 			otherPkg: "example.com/foo",
 			want:     "[]Bar",
+		},
+		{
+			name:     "github.com/jackc/pgx/v5/pgtype.Array[pgtype.Text] - example.com/foo",
+			typ:      &ImportType{PkgPath: "github.com/jackc/pgx/v5/pgtype", Type: &OpaqueType{Name: "Array[pgtype.Text]"}},
+			otherPkg: "example.com/foo",
+			want:     "pgtype.Array[pgtype.Text]",
 		},
 	}
 

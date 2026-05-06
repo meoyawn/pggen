@@ -35,11 +35,15 @@ func TestQuerier(t *testing.T) {
 	{
 		rows, err := q.FindTopScienceChildrenAgg(ctx)
 		require.NoError(t, err)
-		want := []string{
-			"Top.Science",
-			"Top.Science.Astronomy",
-			"Top.Science.Astronomy.Astrophysics",
-			"Top.Science.Astronomy.Cosmology",
+		want := pgtype.Array[pgtype.Text]{
+			Elements: []pgtype.Text{
+				{String: "Top.Science", Valid: true},
+				{String: "Top.Science.Astronomy", Valid: true},
+				{String: "Top.Science.Astronomy.Astrophysics", Valid: true},
+				{String: "Top.Science.Astronomy.Cosmology", Valid: true},
+			},
+			Dims:  []pgtype.ArrayDimension{{Length: 4, LowerBound: 1}},
+			Valid: true,
 		}
 		assert.Equal(t, want, rows)
 	}
@@ -50,8 +54,15 @@ func TestQuerier(t *testing.T) {
 		rows, err := q.FindLtreeInput(ctx, in1, in2)
 		require.NoError(t, err)
 		assert.Equal(t, FindLtreeInputRow{
-			Ltree:   in1,
-			TextArr: in2,
+			Ltree: in1,
+			TextArr: pgtype.Array[pgtype.Text]{
+				Elements: []pgtype.Text{
+					{String: "qux", Valid: true},
+					{String: "qux", Valid: true},
+				},
+				Dims:  []pgtype.ArrayDimension{{Length: 2, LowerBound: 1}},
+				Valid: true,
+			},
 		}, rows)
 	}
 }

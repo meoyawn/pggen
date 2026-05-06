@@ -16,7 +16,7 @@ type QueryName struct{}
 type Querier interface {
 	FindTopScienceChildren(ctx context.Context) ([]pgtype.Text, error)
 
-	FindTopScienceChildrenAgg(ctx context.Context) ([]string, error)
+	FindTopScienceChildrenAgg(ctx context.Context) (pgtype.Array[pgtype.Text], error)
 
 	InsertSampleData(ctx context.Context) (pgconn.CommandTag, error)
 
@@ -95,14 +95,14 @@ FROM test
 WHERE path <@ 'Top.Science';`
 
 // FindTopScienceChildrenAgg implements Querier.FindTopScienceChildrenAgg.
-func (q *DBQuerier) FindTopScienceChildrenAgg(ctx context.Context) ([]string, error) {
+func (q *DBQuerier) FindTopScienceChildrenAgg(ctx context.Context) (pgtype.Array[pgtype.Text], error) {
 	ctx = context.WithValue(ctx, QueryName{}, "FindTopScienceChildrenAgg")
 	rows, err := q.conn.Query(ctx, findTopScienceChildrenAggSQL)
 	if err != nil {
-		return nil, fmt.Errorf("query FindTopScienceChildrenAgg: %w", err)
+		return pgtype.Array[pgtype.Text]{}, fmt.Errorf("query FindTopScienceChildrenAgg: %w", err)
 	}
 
-	return pgx.CollectExactlyOneRow(rows, pgx.RowTo[[]string])
+	return pgx.CollectExactlyOneRow(rows, pgx.RowTo[pgtype.Array[pgtype.Text]])
 }
 
 const insertSampleDataSQL = `INSERT INTO test
@@ -142,8 +142,8 @@ const findLtreeInputSQL = `SELECT
   ($2::text[])::ltree[] AS text_arr;`
 
 type FindLtreeInputRow struct {
-	Ltree   pgtype.Text `json:"ltree" db:"ltree"`
-	TextArr []string    `json:"text_arr" db:"text_arr"`
+	Ltree   pgtype.Text               `json:"ltree" db:"ltree"`
+	TextArr pgtype.Array[pgtype.Text] `json:"text_arr" db:"text_arr"`
 }
 
 // FindLtreeInput implements Querier.FindLtreeInput.
