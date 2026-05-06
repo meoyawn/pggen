@@ -1,24 +1,18 @@
 package golang
 
 import (
-	"fmt"
 	"strconv"
 	"strings"
 
 	"github.com/jschaf/pggen/internal/codegen/golang/gotype"
 )
 
-// NameArrayTranscoderFunc returns the function name that creates a
-// pgtype.ValueTranscoder for the array type that's used to decode rows returned
-// by Postgres.
+// NameArrayTranscoderFunc returns the legacy array helper name.
 func NameArrayTranscoderFunc(typ *gotype.ArrayType) string {
 	return "new" + typ.Elem.BaseName() + "Array"
 }
 
-// NameArrayInitFunc returns the name for the function that creates an
-// initialized pgtype.ValueTranscoder for the array type that's used to encode
-// query parameters. This function is only necessary for top-level types.
-// Descendant types use the raw functions, named by NameArrayRawFunc.
+// NameArrayInitFunc returns the legacy array input helper name.
 func NameArrayInitFunc(typ *gotype.ArrayType) string {
 	elem := typ.Elem
 	if t, ok := elem.(*gotype.ImportType); ok {
@@ -36,9 +30,7 @@ func NameArrayInitFunc(typ *gotype.ArrayType) string {
 	}
 }
 
-// NameArrayRawFunc returns the function name that create the []interface{}
-// array for the array type so that we can use it with a parent encoder
-// function, like NameCompositeInitFunc, in the pgtype.Value Set call.
+// NameArrayRawFunc returns the legacy raw array helper name.
 func NameArrayRawFunc(typ *gotype.ArrayType) string {
 	elem := typ.Elem
 	if t, ok := elem.(*gotype.ImportType); ok {
@@ -56,8 +48,7 @@ func NameArrayRawFunc(typ *gotype.ArrayType) string {
 	}
 }
 
-// ArrayTranscoderDeclarer declares a new Go function that creates a
-// pgtype.ValueTranscoder decoder for an array Postgres type.
+// ArrayTranscoderDeclarer declares a PostgreSQL array type registration.
 type ArrayTranscoderDeclarer struct {
 	typ *gotype.ArrayType
 }
@@ -72,57 +63,14 @@ func (a ArrayTranscoderDeclarer) DedupeKey() string {
 
 func (a ArrayTranscoderDeclarer) Declare(string) (string, error) {
 	sb := &strings.Builder{}
-	funcName := NameArrayTranscoderFunc(a.typ)
-
-	// Doc comment
-	sb.WriteString("// ")
-	sb.WriteString(funcName)
-	sb.WriteString(" creates a new pgtype.ValueTranscoder for the Postgres\n")
-	sb.WriteString("// '")
-	sb.WriteString(a.typ.PgArray.Name)
-	sb.WriteString("' array type.\n")
-
-	// Function signature
-	sb.WriteString("func (tr *typeResolver) ")
-	sb.WriteString(funcName)
-	sb.WriteString("() pgtype.ValueTranscoder {\n\t")
-
-	// newArrayValue call
-	sb.WriteString("return tr.newArrayValue(")
-	sb.WriteString(strconv.Quote(a.typ.PgArray.Name))
-	sb.WriteString(", ")
-	sb.WriteString(strconv.Quote(a.typ.PgArray.Elem.String()))
-	sb.WriteString(", ")
-
-	// Default element transcoder
-	switch elem := gotype.UnwrapNestedType(a.typ.Elem).(type) {
-	case *gotype.CompositeType:
-		sb.WriteString("tr.")
-		sb.WriteString(NameCompositeTranscoderFunc(elem))
-	case *gotype.EnumType:
-		sb.WriteString(NameEnumTranscoderFunc(elem))
-	default:
-		return "", fmt.Errorf("array composite decoder only supports composite and enum elems; got %T", a.typ.Elem)
-	}
+	sb.WriteString("var _ = addTypeToRegister(")
+	sb.WriteString(strconv.Quote(pgTypeNameForLoadType(a.typ.PgArray.Name)))
 	sb.WriteString(")")
-	sb.WriteString("\n")
-	sb.WriteString("}")
-
 	return sb.String(), nil
 }
 
-// ArrayInitDeclarer declares a new Go function that creates an *initialized*
-// pgtype.ValueTranscoder for the Postgres type represented by the
-// gotype.ArrayType.
-//
-// We need a separate declarer from ArrayTranscoderDeclarer because setting a
-// pgtype.ValueTranscoder is much less flexible on the values allowed compared
-// to AssignTo. We can assign a pgtype.ArrayType to any struct but we can only
-// set it with an [][]interface{} if the array elements are composite types.
-//
-// Additionally, we need to use the Postgres text format exclusively because the
-// Postgres binary format requires the type OID but pggen doesn't necessarily
-// know the OIDs of the types. The text format, however, doesn't require OIDs.
+// ArrayInitDeclarer is retained for the old declarer flow. pgx v5 encodes
+// registered array types directly.
 type ArrayInitDeclarer struct {
 	typ *gotype.ArrayType
 }
@@ -136,45 +84,10 @@ func (a ArrayInitDeclarer) DedupeKey() string {
 }
 
 func (a ArrayInitDeclarer) Declare(string) (string, error) {
-	funcName := NameArrayInitFunc(a.typ)
-	sb := &strings.Builder{}
-	sb.Grow(256)
-
-	// Doc comment
-	sb.WriteString("// ")
-	sb.WriteString(funcName)
-	sb.WriteString(" creates an initialized pgtype.ValueTranscoder for the\n")
-	sb.WriteString("// Postgres array type '")
-	sb.WriteString(a.typ.PgArray.Name)
-	sb.WriteString("' to encode query parameters.\n")
-
-	// Function signature
-	sb.WriteString("func (tr *typeResolver) ")
-	sb.WriteString(funcName)
-	sb.WriteString("(ps ")
-	sb.WriteString(a.typ.BaseName())
-	sb.WriteString(") pgtype.ValueTranscoder {\n\t")
-
-	// Function body
-	sb.WriteString("dec := tr.")
-	sb.WriteString(NameArrayTranscoderFunc(a.typ))
-	sb.WriteString("()\n\t")
-	sb.WriteString("if err := dec.Set(tr.")
-	sb.WriteString(NameArrayRawFunc(a.typ))
-	sb.WriteString("(ps)); err != nil {\n\t\t")
-	sb.WriteString(fmt.Sprintf(`panic("encode %s: " + err.Error())`, a.typ.BaseName()))
-	sb.WriteString(" // should always succeed\n\t")
-	sb.WriteString("}\n\t")
-	sb.WriteString("return textPreferrer{ValueTranscoder: dec, typeName: ")
-	sb.WriteString(strconv.Quote(a.typ.PgArray.Name))
-	sb.WriteString("}\n")
-	sb.WriteString("}")
-	return sb.String(), nil
+	return "", nil
 }
 
-// ArrayRawDeclarer declares a new Go function that returns all fields
-// as a generic array: []interface{}. Necessary because we can only set
-// pgtype.ArrayType from a []interface{}.
+// ArrayRawDeclarer is retained for the old declarer flow.
 type ArrayRawDeclarer struct {
 	typ *gotype.ArrayType
 }
@@ -188,39 +101,5 @@ func (a ArrayRawDeclarer) DedupeKey() string {
 }
 
 func (a ArrayRawDeclarer) Declare(pkgPath string) (string, error) {
-	funcName := NameArrayRawFunc(a.typ)
-	sb := &strings.Builder{}
-	sb.Grow(256)
-
-	// Doc comment
-	sb.WriteString("// ")
-	sb.WriteString(funcName)
-	sb.WriteString(" returns all elements for the Postgres array type '")
-	sb.WriteString(a.typ.PgArray.Name)
-	sb.WriteString("'\n// as a slice of interface{} for use with the pgtype.Value Set method.\n")
-
-	// Function signature
-	sb.WriteString("func (tr *typeResolver) ")
-	sb.WriteString(funcName)
-	sb.WriteString("(vs ")
-	sb.WriteString(gotype.QualifyType(a.typ, pkgPath))
-	sb.WriteString(") []interface{} {\n\t")
-
-	// Function body
-	sb.WriteString("elems := make([]interface{}, len(vs))\n\t")
-	sb.WriteString("for i, v := range vs {\n\t\t")
-	sb.WriteString("elems[i] = ")
-	switch elem := gotype.UnwrapNestedType(a.typ.Elem).(type) {
-	case *gotype.CompositeType:
-		sb.WriteString("tr.")
-		sb.WriteString(NameCompositeRawFunc(elem))
-		sb.WriteString("(v)")
-	default:
-		sb.WriteString("v")
-	}
-	sb.WriteString("\n\t")
-	sb.WriteString("}\n\t")
-	sb.WriteString("return elems\n")
-	sb.WriteString("}")
-	return sb.String(), nil
+	return "", nil
 }

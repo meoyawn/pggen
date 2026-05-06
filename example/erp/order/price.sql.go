@@ -5,38 +5,28 @@ package order
 import (
 	"context"
 	"fmt"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
 const findOrdersByPriceSQL = `SELECT * FROM orders WHERE order_total > $1;`
 
 type FindOrdersByPriceRow struct {
-	OrderID    int32              `json:"order_id"`
-	OrderDate  pgtype.Timestamptz `json:"order_date"`
-	OrderTotal pgtype.Numeric     `json:"order_total"`
-	CustomerID *int32             `json:"customer_id"`
+	OrderID    int32              `json:"order_id" db:"order_id"`
+	OrderDate  pgtype.Timestamptz `json:"order_date" db:"order_date"`
+	OrderTotal pgtype.Numeric     `json:"order_total" db:"order_total"`
+	CustomerID *int32             `json:"customer_id" db:"customer_id"`
 }
 
 // FindOrdersByPrice implements Querier.FindOrdersByPrice.
 func (q *DBQuerier) FindOrdersByPrice(ctx context.Context, minTotal pgtype.Numeric) ([]FindOrdersByPriceRow, error) {
-	ctx = context.WithValue(ctx, "pggen_query_name", "FindOrdersByPrice")
+	ctx = context.WithValue(ctx, QueryName{}, "FindOrdersByPrice")
 	rows, err := q.conn.Query(ctx, findOrdersByPriceSQL, minTotal)
 	if err != nil {
 		return nil, fmt.Errorf("query FindOrdersByPrice: %w", err)
 	}
-	defer rows.Close()
-	items := []FindOrdersByPriceRow{}
-	for rows.Next() {
-		var item FindOrdersByPriceRow
-		if err := rows.Scan(&item.OrderID, &item.OrderDate, &item.OrderTotal, &item.CustomerID); err != nil {
-			return nil, fmt.Errorf("scan FindOrdersByPrice row: %w", err)
-		}
-		items = append(items, item)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("close FindOrdersByPrice rows: %w", err)
-	}
-	return items, err
+
+	return pgx.CollectRows(rows, pgx.RowToStructByName[FindOrdersByPriceRow])
 }
 
 const findOrdersMRRSQL = `SELECT date_trunc('month', order_date) AS month, sum(order_total) AS order_mrr
@@ -44,28 +34,17 @@ FROM orders
 GROUP BY date_trunc('month', order_date);`
 
 type FindOrdersMRRRow struct {
-	Month    pgtype.Timestamptz `json:"month"`
-	OrderMRR pgtype.Numeric     `json:"order_mrr"`
+	Month    pgtype.Timestamptz `json:"month" db:"month"`
+	OrderMRR pgtype.Numeric     `json:"order_mrr" db:"order_mrr"`
 }
 
 // FindOrdersMRR implements Querier.FindOrdersMRR.
 func (q *DBQuerier) FindOrdersMRR(ctx context.Context) ([]FindOrdersMRRRow, error) {
-	ctx = context.WithValue(ctx, "pggen_query_name", "FindOrdersMRR")
+	ctx = context.WithValue(ctx, QueryName{}, "FindOrdersMRR")
 	rows, err := q.conn.Query(ctx, findOrdersMRRSQL)
 	if err != nil {
 		return nil, fmt.Errorf("query FindOrdersMRR: %w", err)
 	}
-	defer rows.Close()
-	items := []FindOrdersMRRRow{}
-	for rows.Next() {
-		var item FindOrdersMRRRow
-		if err := rows.Scan(&item.Month, &item.OrderMRR); err != nil {
-			return nil, fmt.Errorf("scan FindOrdersMRR row: %w", err)
-		}
-		items = append(items, item)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("close FindOrdersMRR rows: %w", err)
-	}
-	return items, err
+
+	return pgx.CollectRows(rows, pgx.RowToStructByName[FindOrdersMRRRow])
 }

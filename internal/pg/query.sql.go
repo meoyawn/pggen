@@ -9,6 +9,8 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 )
 
+type QueryName struct{}
+
 // Querier is a typesafe Go interface backed by SQL queries.
 type Querier interface {
 	FindEnumTypes(ctx context.Context, oids []uint32) ([]FindEnumTypesRow, error)
@@ -34,7 +36,7 @@ type Querier interface {
 var _ Querier = &DBQuerier{}
 
 type DBQuerier struct {
-	conn genericConn // underlying Postgres transport to use
+	conn genericConn
 }
 
 // genericConn is a connection like *pgx.Conn, pgx.Tx, or *pgxpool.Pool.
@@ -48,6 +50,42 @@ type genericConn interface {
 func NewQuerier(conn genericConn) *DBQuerier {
 	return &DBQuerier{conn: conn}
 }
+
+// RegisterTypes loads custom PostgreSQL types into conn's pgx type map.
+func RegisterTypes(ctx context.Context, conn *pgx.Conn) error {
+	pending := append([]string(nil), typesToRegister...)
+	for len(pending) > 0 {
+		remaining := pending[:0]
+		loaded := 0
+		var lastErr error
+		var lastType string
+		for _, typ := range pending {
+			dt, err := conn.LoadType(ctx, typ)
+			if err != nil {
+				lastErr = err
+				lastType = typ
+				remaining = append(remaining, typ)
+				continue
+			}
+			conn.TypeMap().RegisterType(dt)
+			loaded++
+		}
+		if loaded == 0 {
+			return fmt.Errorf("load PostgreSQL type %q: %w", lastType, lastErr)
+		}
+		pending = remaining
+	}
+	return nil
+}
+
+var typesToRegister = []string{}
+
+func addTypeToRegister(typ string) struct{} {
+	typesToRegister = append(typesToRegister, typ)
+	return struct{}{}
+}
+
+
 
 const findEnumTypesSQL = `WITH enums AS (
   SELECT
@@ -94,35 +132,24 @@ WHERE typ.typisdefined
   AND typ.oid = ANY ($1::oid[]);`
 
 type FindEnumTypesRow struct {
-	OID         uint32    `json:"oid"`
-	TypeName    string    `json:"type_name"`
-	ChildOIDs   []int     `json:"child_oids"`
-	Orders      []float32 `json:"orders"`
-	Labels      []string  `json:"labels"`
-	TypeKind    byte      `json:"type_kind"`
-	DefaultExpr string    `json:"default_expr"`
+	OID         uint32    `json:"oid" db:"oid"`
+	TypeName    string    `json:"type_name" db:"type_name"`
+	ChildOIDs   []int     `json:"child_oids" db:"child_oids"`
+	Orders      []float32 `json:"orders" db:"orders"`
+	Labels      []string  `json:"labels" db:"labels"`
+	TypeKind    byte      `json:"type_kind" db:"type_kind"`
+	DefaultExpr string    `json:"default_expr" db:"default_expr"`
 }
 
 // FindEnumTypes implements Querier.FindEnumTypes.
 func (q *DBQuerier) FindEnumTypes(ctx context.Context, oids []uint32) ([]FindEnumTypesRow, error) {
-	ctx = context.WithValue(ctx, "pggen_query_name", "FindEnumTypes")
+	ctx = context.WithValue(ctx, QueryName{}, "FindEnumTypes")
 	rows, err := q.conn.Query(ctx, findEnumTypesSQL, oids)
 	if err != nil {
 		return nil, fmt.Errorf("query FindEnumTypes: %w", err)
 	}
-	defer rows.Close()
-	items := []FindEnumTypesRow{}
-	for rows.Next() {
-		var item FindEnumTypesRow
-		if err := rows.Scan(&item.OID, &item.TypeName, &item.ChildOIDs, &item.Orders, &item.Labels, &item.TypeKind, &item.DefaultExpr); err != nil {
-			return nil, fmt.Errorf("scan FindEnumTypes row: %w", err)
-		}
-		items = append(items, item)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("close FindEnumTypes rows: %w", err)
-	}
-	return items, err
+
+	return pgx.CollectRows(rows, pgx.RowToStructByName[FindEnumTypesRow])
 }
 
 const findArrayTypesSQL = `SELECT
@@ -155,32 +182,21 @@ WHERE arr_typ.typisdefined
   AND arr_typ.oid = ANY ($1::oid[]);`
 
 type FindArrayTypesRow struct {
-	OID      uint32 `json:"oid"`
-	TypeName string `json:"type_name"`
-	ElemOID  uint32 `json:"elem_oid"`
-	TypeKind byte   `json:"type_kind"`
+	OID      uint32 `json:"oid" db:"oid"`
+	TypeName string `json:"type_name" db:"type_name"`
+	ElemOID  uint32 `json:"elem_oid" db:"elem_oid"`
+	TypeKind byte   `json:"type_kind" db:"type_kind"`
 }
 
 // FindArrayTypes implements Querier.FindArrayTypes.
 func (q *DBQuerier) FindArrayTypes(ctx context.Context, oids []uint32) ([]FindArrayTypesRow, error) {
-	ctx = context.WithValue(ctx, "pggen_query_name", "FindArrayTypes")
+	ctx = context.WithValue(ctx, QueryName{}, "FindArrayTypes")
 	rows, err := q.conn.Query(ctx, findArrayTypesSQL, oids)
 	if err != nil {
 		return nil, fmt.Errorf("query FindArrayTypes: %w", err)
 	}
-	defer rows.Close()
-	items := []FindArrayTypesRow{}
-	for rows.Next() {
-		var item FindArrayTypesRow
-		if err := rows.Scan(&item.OID, &item.TypeName, &item.ElemOID, &item.TypeKind); err != nil {
-			return nil, fmt.Errorf("scan FindArrayTypes row: %w", err)
-		}
-		items = append(items, item)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("close FindArrayTypes rows: %w", err)
-	}
-	return items, err
+
+	return pgx.CollectRows(rows, pgx.RowToStructByName[FindArrayTypesRow])
 }
 
 const findCompositeTypesSQL = `WITH table_cols AS (
@@ -214,36 +230,25 @@ WHERE typ.oid = ANY ($1::oid[])
   AND typ.typtype = 'c';`
 
 type FindCompositeTypesRow struct {
-	TableTypeName string   `json:"table_type_name"`
-	TableTypeOID  uint32   `json:"table_type_oid"`
-	TableName     string   `json:"table_name"`
-	ColNames      []string `json:"col_names"`
-	ColOIDs       []int    `json:"col_oids"`
-	ColOrders     []int    `json:"col_orders"`
-	ColNotNulls   []bool   `json:"col_not_nulls"`
-	ColTypeNames  []string `json:"col_type_names"`
+	TableTypeName string   `json:"table_type_name" db:"table_type_name"`
+	TableTypeOID  uint32   `json:"table_type_oid" db:"table_type_oid"`
+	TableName     string   `json:"table_name" db:"table_name"`
+	ColNames      []string `json:"col_names" db:"col_names"`
+	ColOIDs       []int    `json:"col_oids" db:"col_oids"`
+	ColOrders     []int    `json:"col_orders" db:"col_orders"`
+	ColNotNulls   []bool   `json:"col_not_nulls" db:"col_not_nulls"`
+	ColTypeNames  []string `json:"col_type_names" db:"col_type_names"`
 }
 
 // FindCompositeTypes implements Querier.FindCompositeTypes.
 func (q *DBQuerier) FindCompositeTypes(ctx context.Context, oids []uint32) ([]FindCompositeTypesRow, error) {
-	ctx = context.WithValue(ctx, "pggen_query_name", "FindCompositeTypes")
+	ctx = context.WithValue(ctx, QueryName{}, "FindCompositeTypes")
 	rows, err := q.conn.Query(ctx, findCompositeTypesSQL, oids)
 	if err != nil {
 		return nil, fmt.Errorf("query FindCompositeTypes: %w", err)
 	}
-	defer rows.Close()
-	items := []FindCompositeTypesRow{}
-	for rows.Next() {
-		var item FindCompositeTypesRow
-		if err := rows.Scan(&item.TableTypeName, &item.TableTypeOID, &item.TableName, &item.ColNames, &item.ColOIDs, &item.ColOrders, &item.ColNotNulls, &item.ColTypeNames); err != nil {
-			return nil, fmt.Errorf("scan FindCompositeTypes row: %w", err)
-		}
-		items = append(items, item)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("close FindCompositeTypes rows: %w", err)
-	}
-	return items, err
+
+	return pgx.CollectRows(rows, pgx.RowToStructByName[FindCompositeTypesRow])
 }
 
 const findDescendantOIDsSQL = `WITH RECURSIVE oid_descs(oid) AS (
@@ -276,24 +281,13 @@ FROM oid_descs;`
 
 // FindDescendantOIDs implements Querier.FindDescendantOIDs.
 func (q *DBQuerier) FindDescendantOIDs(ctx context.Context, oids []uint32) ([]uint32, error) {
-	ctx = context.WithValue(ctx, "pggen_query_name", "FindDescendantOIDs")
+	ctx = context.WithValue(ctx, QueryName{}, "FindDescendantOIDs")
 	rows, err := q.conn.Query(ctx, findDescendantOIDsSQL, oids)
 	if err != nil {
 		return nil, fmt.Errorf("query FindDescendantOIDs: %w", err)
 	}
-	defer rows.Close()
-	items := []uint32{}
-	for rows.Next() {
-		var item uint32
-		if err := rows.Scan(&item); err != nil {
-			return nil, fmt.Errorf("scan FindDescendantOIDs row: %w", err)
-		}
-		items = append(items, item)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("close FindDescendantOIDs rows: %w", err)
-	}
-	return items, err
+
+	return pgx.CollectRows(rows, pgx.RowTo[uint32])
 }
 
 const findOIDByNameSQL = `SELECT oid
@@ -304,13 +298,13 @@ LIMIT 1;`
 
 // FindOIDByName implements Querier.FindOIDByName.
 func (q *DBQuerier) FindOIDByName(ctx context.Context, name string) (uint32, error) {
-	ctx = context.WithValue(ctx, "pggen_query_name", "FindOIDByName")
-	row := q.conn.QueryRow(ctx, findOIDByNameSQL, name)
-	var item uint32
-	if err := row.Scan(&item); err != nil {
-		return item, fmt.Errorf("query FindOIDByName: %w", err)
+	ctx = context.WithValue(ctx, QueryName{}, "FindOIDByName")
+	rows, err := q.conn.Query(ctx, findOIDByNameSQL, name)
+	if err != nil {
+		return 0, fmt.Errorf("query FindOIDByName: %w", err)
 	}
-	return item, nil
+
+	return pgx.CollectExactlyOneRow(rows, pgx.RowTo[uint32])
 }
 
 const findOIDNameSQL = `SELECT typname AS name
@@ -319,13 +313,13 @@ WHERE oid = $1;`
 
 // FindOIDName implements Querier.FindOIDName.
 func (q *DBQuerier) FindOIDName(ctx context.Context, oid uint32) (string, error) {
-	ctx = context.WithValue(ctx, "pggen_query_name", "FindOIDName")
-	row := q.conn.QueryRow(ctx, findOIDNameSQL, oid)
-	var item string
-	if err := row.Scan(&item); err != nil {
-		return item, fmt.Errorf("query FindOIDName: %w", err)
+	ctx = context.WithValue(ctx, QueryName{}, "FindOIDName")
+	rows, err := q.conn.Query(ctx, findOIDNameSQL, oid)
+	if err != nil {
+		return "", fmt.Errorf("query FindOIDName: %w", err)
 	}
-	return item, nil
+
+	return pgx.CollectExactlyOneRow(rows, pgx.RowTo[string])
 }
 
 const findOIDNamesSQL = `SELECT oid, typname AS name, typtype AS kind
@@ -333,29 +327,18 @@ FROM pg_type
 WHERE oid = ANY ($1::oid[]);`
 
 type FindOIDNamesRow struct {
-	OID  uint32 `json:"oid"`
-	Name string `json:"name"`
-	Kind byte   `json:"kind"`
+	OID  uint32 `json:"oid" db:"oid"`
+	Name string `json:"name" db:"name"`
+	Kind byte   `json:"kind" db:"kind"`
 }
 
 // FindOIDNames implements Querier.FindOIDNames.
 func (q *DBQuerier) FindOIDNames(ctx context.Context, oid []uint32) ([]FindOIDNamesRow, error) {
-	ctx = context.WithValue(ctx, "pggen_query_name", "FindOIDNames")
+	ctx = context.WithValue(ctx, QueryName{}, "FindOIDNames")
 	rows, err := q.conn.Query(ctx, findOIDNamesSQL, oid)
 	if err != nil {
 		return nil, fmt.Errorf("query FindOIDNames: %w", err)
 	}
-	defer rows.Close()
-	items := []FindOIDNamesRow{}
-	for rows.Next() {
-		var item FindOIDNamesRow
-		if err := rows.Scan(&item.OID, &item.Name, &item.Kind); err != nil {
-			return nil, fmt.Errorf("scan FindOIDNames row: %w", err)
-		}
-		items = append(items, item)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("close FindOIDNames rows: %w", err)
-	}
-	return items, err
+
+	return pgx.CollectRows(rows, pgx.RowToStructByName[FindOIDNamesRow])
 }

@@ -117,7 +117,6 @@ func (tm Templater) templateFile(file codegen.QueryFile, isLeader bool) (Templat
 	imports.AddPackage("fmt")
 	imports.AddPackage("github.com/jackc/pgx/v5/pgconn")
 	if isLeader {
-		imports.AddPackage("github.com/jackc/pgx/v5/pgtype")
 		imports.AddPackage("github.com/jackc/pgx/v5")
 	}
 
@@ -189,6 +188,9 @@ func (tm Templater) templateFile(file codegen.QueryFile, isLeader bool) (Templat
 		resultKind := query.ResultKind
 		if len(nonVoidCols) == 0 {
 			resultKind = ast.ResultKindExec
+		}
+		if resultKind != ast.ResultKindExec {
+			imports.AddPackage("github.com/jackc/pgx/v5")
 		}
 		queries = append(queries, TemplatedQuery{
 			Name:             tm.caser.ToUpperGoIdent(query.Name),

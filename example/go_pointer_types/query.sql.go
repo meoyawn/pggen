@@ -7,8 +7,9 @@ import (
 	"fmt"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
-	"github.com/jackc/pgx/v5/pgtype"
 )
+
+type QueryName struct{}
 
 // Querier is a typesafe Go interface backed by SQL queries.
 type Querier interface {
@@ -28,8 +29,7 @@ type Querier interface {
 var _ Querier = &DBQuerier{}
 
 type DBQuerier struct {
-	conn  genericConn   // underlying Postgres transport to use
-	types *typeResolver // resolve types by name
+	conn genericConn
 }
 
 // genericConn is a connection like *pgx.Conn, pgx.Tx, or *pgxpool.Pool.
@@ -41,36 +41,41 @@ type genericConn interface {
 
 // NewQuerier creates a DBQuerier that implements Querier.
 func NewQuerier(conn genericConn) *DBQuerier {
-	return &DBQuerier{conn: conn, types: newTypeResolver()}
+	return &DBQuerier{conn: conn}
 }
 
-// typeResolver looks up the pgtype.ValueTranscoder by Postgres type name.
-type typeResolver struct {
-	connInfo *pgtype.ConnInfo // types by Postgres type name
-}
-
-func newTypeResolver() *typeResolver {
-	ci := pgtype.NewConnInfo()
-	return &typeResolver{connInfo: ci}
-}
-
-// findValue find the OID, and pgtype.ValueTranscoder for a Postgres type name.
-func (tr *typeResolver) findValue(name string) (uint32, pgtype.ValueTranscoder, bool) {
-	typ, ok := tr.connInfo.DataTypeForName(name)
-	if !ok {
-		return 0, nil, false
+// RegisterTypes loads custom PostgreSQL types into conn's pgx type map.
+func RegisterTypes(ctx context.Context, conn *pgx.Conn) error {
+	pending := append([]string(nil), typesToRegister...)
+	for len(pending) > 0 {
+		remaining := pending[:0]
+		loaded := 0
+		var lastErr error
+		var lastType string
+		for _, typ := range pending {
+			dt, err := conn.LoadType(ctx, typ)
+			if err != nil {
+				lastErr = err
+				lastType = typ
+				remaining = append(remaining, typ)
+				continue
+			}
+			conn.TypeMap().RegisterType(dt)
+			loaded++
+		}
+		if loaded == 0 {
+			return fmt.Errorf("load PostgreSQL type %q: %w", lastType, lastErr)
+		}
+		pending = remaining
 	}
-	v := pgtype.NewValue(typ.Value)
-	return typ.OID, v.(pgtype.ValueTranscoder), true
+	return nil
 }
 
-// setValue sets the value of a ValueTranscoder to a value that should always
-// work and panics if it fails.
-func (tr *typeResolver) setValue(vt pgtype.ValueTranscoder, val interface{}) pgtype.ValueTranscoder {
-	if err := vt.Set(val); err != nil {
-		panic(fmt.Sprintf("set ValueTranscoder %T to %+v: %s", vt, val, err))
-	}
-	return vt
+var typesToRegister = []string{}
+
+func addTypeToRegister(typ string) struct{} {
+	typesToRegister = append(typesToRegister, typ)
+	return struct{}{}
 }
 
 const genSeries1SQL = `SELECT n
@@ -79,13 +84,13 @@ LIMIT 1;`
 
 // GenSeries1 implements Querier.GenSeries1.
 func (q *DBQuerier) GenSeries1(ctx context.Context) (*int, error) {
-	ctx = context.WithValue(ctx, "pggen_query_name", "GenSeries1")
-	row := q.conn.QueryRow(ctx, genSeries1SQL)
-	var item *int
-	if err := row.Scan(&item); err != nil {
-		return item, fmt.Errorf("query GenSeries1: %w", err)
+	ctx = context.WithValue(ctx, QueryName{}, "GenSeries1")
+	rows, err := q.conn.Query(ctx, genSeries1SQL)
+	if err != nil {
+		return nil, fmt.Errorf("query GenSeries1: %w", err)
 	}
-	return item, nil
+
+	return pgx.CollectExactlyOneRow(rows, pgx.RowTo[*int])
 }
 
 const genSeriesSQL = `SELECT n
@@ -93,24 +98,13 @@ FROM generate_series(0, 2) n;`
 
 // GenSeries implements Querier.GenSeries.
 func (q *DBQuerier) GenSeries(ctx context.Context) ([]*int, error) {
-	ctx = context.WithValue(ctx, "pggen_query_name", "GenSeries")
+	ctx = context.WithValue(ctx, QueryName{}, "GenSeries")
 	rows, err := q.conn.Query(ctx, genSeriesSQL)
 	if err != nil {
 		return nil, fmt.Errorf("query GenSeries: %w", err)
 	}
-	defer rows.Close()
-	items := []*int{}
-	for rows.Next() {
-		var item int
-		if err := rows.Scan(&item); err != nil {
-			return nil, fmt.Errorf("scan GenSeries row: %w", err)
-		}
-		items = append(items, &item)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("close GenSeries rows: %w", err)
-	}
-	return items, err
+
+	return pgx.CollectRows(rows, pgx.RowTo[*int])
 }
 
 const genSeriesArr1SQL = `SELECT array_agg(n)
@@ -118,13 +112,13 @@ FROM generate_series(0, 2) n;`
 
 // GenSeriesArr1 implements Querier.GenSeriesArr1.
 func (q *DBQuerier) GenSeriesArr1(ctx context.Context) ([]int, error) {
-	ctx = context.WithValue(ctx, "pggen_query_name", "GenSeriesArr1")
-	row := q.conn.QueryRow(ctx, genSeriesArr1SQL)
-	item := []int{}
-	if err := row.Scan(&item); err != nil {
-		return item, fmt.Errorf("query GenSeriesArr1: %w", err)
+	ctx = context.WithValue(ctx, QueryName{}, "GenSeriesArr1")
+	rows, err := q.conn.Query(ctx, genSeriesArr1SQL)
+	if err != nil {
+		return nil, fmt.Errorf("query GenSeriesArr1: %w", err)
 	}
-	return item, nil
+
+	return pgx.CollectExactlyOneRow(rows, pgx.RowTo[[]int])
 }
 
 const genSeriesArrSQL = `SELECT array_agg(n)
@@ -132,24 +126,13 @@ FROM generate_series(0, 2) n;`
 
 // GenSeriesArr implements Querier.GenSeriesArr.
 func (q *DBQuerier) GenSeriesArr(ctx context.Context) ([][]int, error) {
-	ctx = context.WithValue(ctx, "pggen_query_name", "GenSeriesArr")
+	ctx = context.WithValue(ctx, QueryName{}, "GenSeriesArr")
 	rows, err := q.conn.Query(ctx, genSeriesArrSQL)
 	if err != nil {
 		return nil, fmt.Errorf("query GenSeriesArr: %w", err)
 	}
-	defer rows.Close()
-	items := [][]int{}
-	for rows.Next() {
-		var item []int
-		if err := rows.Scan(&item); err != nil {
-			return nil, fmt.Errorf("scan GenSeriesArr row: %w", err)
-		}
-		items = append(items, item)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("close GenSeriesArr rows: %w", err)
-	}
-	return items, err
+
+	return pgx.CollectRows(rows, pgx.RowTo[[]int])
 }
 
 const genSeriesStr1SQL = `SELECT n::text
@@ -158,13 +141,13 @@ LIMIT 1;`
 
 // GenSeriesStr1 implements Querier.GenSeriesStr1.
 func (q *DBQuerier) GenSeriesStr1(ctx context.Context) (*string, error) {
-	ctx = context.WithValue(ctx, "pggen_query_name", "GenSeriesStr1")
-	row := q.conn.QueryRow(ctx, genSeriesStr1SQL)
-	var item *string
-	if err := row.Scan(&item); err != nil {
-		return item, fmt.Errorf("query GenSeriesStr1: %w", err)
+	ctx = context.WithValue(ctx, QueryName{}, "GenSeriesStr1")
+	rows, err := q.conn.Query(ctx, genSeriesStr1SQL)
+	if err != nil {
+		return nil, fmt.Errorf("query GenSeriesStr1: %w", err)
 	}
-	return item, nil
+
+	return pgx.CollectExactlyOneRow(rows, pgx.RowTo[*string])
 }
 
 const genSeriesStrSQL = `SELECT n::text
@@ -172,47 +155,11 @@ FROM generate_series(0, 2) n;`
 
 // GenSeriesStr implements Querier.GenSeriesStr.
 func (q *DBQuerier) GenSeriesStr(ctx context.Context) ([]*string, error) {
-	ctx = context.WithValue(ctx, "pggen_query_name", "GenSeriesStr")
+	ctx = context.WithValue(ctx, QueryName{}, "GenSeriesStr")
 	rows, err := q.conn.Query(ctx, genSeriesStrSQL)
 	if err != nil {
 		return nil, fmt.Errorf("query GenSeriesStr: %w", err)
 	}
-	defer rows.Close()
-	items := []*string{}
-	for rows.Next() {
-		var item string
-		if err := rows.Scan(&item); err != nil {
-			return nil, fmt.Errorf("scan GenSeriesStr row: %w", err)
-		}
-		items = append(items, &item)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("close GenSeriesStr rows: %w", err)
-	}
-	return items, err
+
+	return pgx.CollectRows(rows, pgx.RowTo[*string])
 }
-
-// textPreferrer wraps a pgtype.ValueTranscoder and sets the preferred encoding
-// format to text instead binary (the default). pggen uses the text format
-// when the OID is unknownOID because the binary format requires the OID.
-// Typically occurs for unregistered types.
-type textPreferrer struct {
-	pgtype.ValueTranscoder
-	typeName string
-}
-
-// PreferredParamFormat implements pgtype.ParamFormatPreferrer.
-func (t textPreferrer) PreferredParamFormat() int16 { return pgtype.TextFormatCode }
-
-func (t textPreferrer) NewTypeValue() pgtype.Value {
-	return textPreferrer{ValueTranscoder: pgtype.NewValue(t.ValueTranscoder).(pgtype.ValueTranscoder), typeName: t.typeName}
-}
-
-func (t textPreferrer) TypeName() string {
-	return t.typeName
-}
-
-// unknownOID means we don't know the OID for a type. This is okay for decoding
-// because pgx call DecodeText or DecodeBinary without requiring the OID. For
-// encoding parameters, pggen uses textPreferrer if the OID is unknown.
-const unknownOID = 0

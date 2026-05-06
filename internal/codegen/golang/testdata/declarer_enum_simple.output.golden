@@ -8,31 +8,38 @@ const (
 
 func (d DeviceType) String() string { return string(d) }
 
-// typeResolver looks up the pgtype.ValueTranscoder by Postgres type name.
-type typeResolver struct {
-	connInfo *pgtype.ConnInfo // types by Postgres type name
-}
-
-func newTypeResolver() *typeResolver {
-	ci := pgtype.NewConnInfo()
-	return &typeResolver{connInfo: ci}
-}
-
-// findValue find the OID, and pgtype.ValueTranscoder for a Postgres type name.
-func (tr *typeResolver) findValue(name string) (uint32, pgtype.ValueTranscoder, bool) {
-	typ, ok := tr.connInfo.DataTypeForName(name)
-	if !ok {
-		return 0, nil, false
+// RegisterTypes loads custom PostgreSQL types into conn's pgx type map.
+func RegisterTypes(ctx context.Context, conn *pgx.Conn) error {
+	pending := append([]string(nil), typesToRegister...)
+	for len(pending) > 0 {
+		remaining := pending[:0]
+		loaded := 0
+		var lastErr error
+		var lastType string
+		for _, typ := range pending {
+			dt, err := conn.LoadType(ctx, typ)
+			if err != nil {
+				lastErr = err
+				lastType = typ
+				remaining = append(remaining, typ)
+				continue
+			}
+			conn.TypeMap().RegisterType(dt)
+			loaded++
+		}
+		if loaded == 0 {
+			return fmt.Errorf("load PostgreSQL type %q: %w", lastType, lastErr)
+		}
+		pending = remaining
 	}
-	v := pgtype.NewValue(typ.Value)
-	return typ.OID, v.(pgtype.ValueTranscoder), true
+	return nil
 }
 
-// setValue sets the value of a ValueTranscoder to a value that should always
-// work and panics if it fails.
-func (tr *typeResolver) setValue(vt pgtype.ValueTranscoder, val interface{}) pgtype.ValueTranscoder {
-	if err := vt.Set(val); err != nil {
-		panic(fmt.Sprintf("set ValueTranscoder %T to %+v: %s", vt, val, err))
-	}
-	return vt
+var typesToRegister = []string{}
+
+func addTypeToRegister(typ string) struct{} {
+	typesToRegister = append(typesToRegister, typ)
+	return struct{}{}
 }
+
+var _ = addTypeToRegister("\"device_type\"")

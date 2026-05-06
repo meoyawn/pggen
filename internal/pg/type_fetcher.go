@@ -40,9 +40,7 @@ func (tf *TypeFetcher) FindTypesByOIDs(oids ...uint32) (map[uint32]Type, error) 
 		return nil, fmt.Errorf("find descendant oids: %w", err)
 	}
 	allOIDs := make([]uint32, len(descOIDs))
-	for i, d := range descOIDs {
-		allOIDs[i] = uint32(d)
-	}
+	copy(allOIDs, descOIDs)
 	types, uncached := tf.cache.getOIDs(allOIDs...)
 
 	enums, err := tf.findEnumTypes(ctx, uncached)
@@ -189,7 +187,7 @@ func (tf *TypeFetcher) findArrayTypes(ctx context.Context, uncached map[uint32]s
 	}
 	types := make([]ArrayType, len(rows))
 	for i, row := range rows {
-		elemType, ok := tf.cache.getOID(uint32(row.ElemOID))
+		elemType, ok := tf.cache.getOID(row.ElemOID)
 		if !ok {
 			return nil, fmt.Errorf("find type for array elem %s oid=%d", row.TypeName, row.OID)
 		}
@@ -249,7 +247,7 @@ func (tf *TypeFetcher) resolvePlaceholderTypes(knownTypes map[uint32]Type) error
 func oidKeys(os map[uint32]struct{}) []uint32 {
 	oids := make([]uint32, 0, len(os))
 	for oid := range os {
-		oids = append(oids, uint32(oid))
+		oids = append(oids, oid)
 	}
 	return oids
 }

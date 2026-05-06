@@ -10,6 +10,8 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+type QueryName struct{}
+
 // Querier is a typesafe Go interface backed by SQL queries.
 type Querier interface {
 	SearchScreenshots(ctx context.Context, params SearchScreenshotsParams) ([]SearchScreenshotsRow, error)
@@ -26,8 +28,7 @@ type Querier interface {
 var _ Querier = &DBQuerier{}
 
 type DBQuerier struct {
-	conn  genericConn   // underlying Postgres transport to use
-	types *typeResolver // resolve types by name
+	conn genericConn
 }
 
 // genericConn is a connection like *pgx.Conn, pgx.Tx, or *pgxpool.Pool.
@@ -39,175 +40,79 @@ type genericConn interface {
 
 // NewQuerier creates a DBQuerier that implements Querier.
 func NewQuerier(conn genericConn) *DBQuerier {
-	return &DBQuerier{conn: conn, types: newTypeResolver()}
+	return &DBQuerier{conn: conn}
 }
 
 // Arrays represents the Postgres composite type "arrays".
 type Arrays struct {
-	Texts  []string   `json:"texts"`
-	Int8s  []*int     `json:"int8s"`
-	Bools  []bool     `json:"bools"`
-	Floats []*float64 `json:"floats"`
+	Texts  []string   `json:"texts" db:"texts"`
+	Int8s  []*int     `json:"int8s" db:"int8s"`
+	Bools  []bool     `json:"bools" db:"bools"`
+	Floats []*float64 `json:"floats" db:"floats"`
 }
 
 // Blocks represents the Postgres composite type "blocks".
 type Blocks struct {
-	ID           int    `json:"id"`
-	ScreenshotID int    `json:"screenshot_id"`
-	Body         string `json:"body"`
+	ID           int    `json:"id" db:"id"`
+	ScreenshotID int    `json:"screenshot_id" db:"screenshot_id"`
+	Body         string `json:"body" db:"body"`
 }
 
 // UserEmail represents the Postgres composite type "user_email".
 type UserEmail struct {
-	ID    string      `json:"id"`
-	Email pgtype.Text `json:"email"`
+	ID    string      `json:"id" db:"id"`
+	Email pgtype.Text `json:"email" db:"email"`
 }
 
-// typeResolver looks up the pgtype.ValueTranscoder by Postgres type name.
-type typeResolver struct {
-	connInfo *pgtype.ConnInfo // types by Postgres type name
-}
-
-func newTypeResolver() *typeResolver {
-	ci := pgtype.NewConnInfo()
-	return &typeResolver{connInfo: ci}
-}
-
-// findValue find the OID, and pgtype.ValueTranscoder for a Postgres type name.
-func (tr *typeResolver) findValue(name string) (uint32, pgtype.ValueTranscoder, bool) {
-	typ, ok := tr.connInfo.DataTypeForName(name)
-	if !ok {
-		return 0, nil, false
-	}
-	v := pgtype.NewValue(typ.Value)
-	return typ.OID, v.(pgtype.ValueTranscoder), true
-}
-
-// setValue sets the value of a ValueTranscoder to a value that should always
-// work and panics if it fails.
-func (tr *typeResolver) setValue(vt pgtype.ValueTranscoder, val interface{}) pgtype.ValueTranscoder {
-	if err := vt.Set(val); err != nil {
-		panic(fmt.Sprintf("set ValueTranscoder %T to %+v: %s", vt, val, err))
-	}
-	return vt
-}
-
-type compositeField struct {
-	name       string                 // name of the field
-	typeName   string                 // Postgres type name
-	defaultVal pgtype.ValueTranscoder // default value to use
-}
-
-func (tr *typeResolver) newCompositeValue(name string, fields ...compositeField) pgtype.ValueTranscoder {
-	if _, val, ok := tr.findValue(name); ok {
-		return val
-	}
-	fs := make([]pgtype.CompositeTypeField, len(fields))
-	vals := make([]pgtype.ValueTranscoder, len(fields))
-	isBinaryOk := true
-	for i, field := range fields {
-		oid, val, ok := tr.findValue(field.typeName)
-		if !ok {
-			oid = unknownOID
-			val = field.defaultVal
+// RegisterTypes loads custom PostgreSQL types into conn's pgx type map.
+func RegisterTypes(ctx context.Context, conn *pgx.Conn) error {
+	pending := append([]string(nil), typesToRegister...)
+	for len(pending) > 0 {
+		remaining := pending[:0]
+		loaded := 0
+		var lastErr error
+		var lastType string
+		for _, typ := range pending {
+			dt, err := conn.LoadType(ctx, typ)
+			if err != nil {
+				lastErr = err
+				lastType = typ
+				remaining = append(remaining, typ)
+				continue
+			}
+			conn.TypeMap().RegisterType(dt)
+			loaded++
 		}
-		isBinaryOk = isBinaryOk && oid != unknownOID
-		fs[i] = pgtype.CompositeTypeField{Name: field.name, OID: oid}
-		vals[i] = val
+		if loaded == 0 {
+			return fmt.Errorf("load PostgreSQL type %q: %w", lastType, lastErr)
+		}
+		pending = remaining
 	}
-	// Okay to ignore error because it's only thrown when the number of field
-	// names does not equal the number of ValueTranscoders.
-	typ, _ := pgtype.NewCompositeTypeValues(name, fs, vals)
-	if !isBinaryOk {
-		return textPreferrer{ValueTranscoder: typ, typeName: name}
-	}
-	return typ
+	return nil
 }
 
-func (tr *typeResolver) newArrayValue(name, elemName string, defaultVal func() pgtype.ValueTranscoder) pgtype.ValueTranscoder {
-	if _, val, ok := tr.findValue(name); ok {
-		return val
-	}
-	elemOID, elemVal, ok := tr.findValue(elemName)
-	elemValFunc := func() pgtype.ValueTranscoder {
-		return pgtype.NewValue(elemVal).(pgtype.ValueTranscoder)
-	}
-	if !ok {
-		elemOID = unknownOID
-		elemValFunc = defaultVal
-	}
-	typ := pgtype.NewArrayType(name, elemOID, elemValFunc)
-	if elemOID == unknownOID {
-		return textPreferrer{ValueTranscoder: typ, typeName: name}
-	}
-	return typ
+var typesToRegister = []string{}
+
+func addTypeToRegister(typ string) struct{} {
+	typesToRegister = append(typesToRegister, typ)
+	return struct{}{}
 }
 
-// newArrays creates a new pgtype.ValueTranscoder for the Postgres
-// composite type 'arrays'.
-func (tr *typeResolver) newArrays() pgtype.ValueTranscoder {
-	return tr.newCompositeValue(
-		"arrays",
-		compositeField{name: "texts", typeName: "_text", defaultVal: &pgtype.TextArray{}},
-		compositeField{name: "int8s", typeName: "_int8", defaultVal: &pgtype.Int8Array{}},
-		compositeField{name: "bools", typeName: "_bool", defaultVal: &pgtype.BoolArray{}},
-		compositeField{name: "floats", typeName: "_float8", defaultVal: &pgtype.Float8Array{}},
-	)
-}
 
-// newArraysInit creates an initialized pgtype.ValueTranscoder for the
-// Postgres composite type 'arrays' to encode query parameters.
-func (tr *typeResolver) newArraysInit(v Arrays) pgtype.ValueTranscoder {
-	return tr.setValue(tr.newArrays(), tr.newArraysRaw(v))
-}
 
-// newArraysRaw returns all composite fields for the Postgres composite
-// type 'arrays' as a slice of interface{} to encode query parameters.
-func (tr *typeResolver) newArraysRaw(v Arrays) []interface{} {
-	return []interface{}{
-		v.Texts,
-		v.Int8s,
-		v.Bools,
-		v.Floats,
-	}
-}
+var _ = addTypeToRegister("\"arrays\"")
 
-// newBlocks creates a new pgtype.ValueTranscoder for the Postgres
-// composite type 'blocks'.
-func (tr *typeResolver) newBlocks() pgtype.ValueTranscoder {
-	return tr.newCompositeValue(
-		"blocks",
-		compositeField{name: "id", typeName: "int4", defaultVal: &pgtype.Int4{}},
-		compositeField{name: "screenshot_id", typeName: "int8", defaultVal: &pgtype.Int8{}},
-		compositeField{name: "body", typeName: "text", defaultVal: &pgtype.Text{}},
-	)
-}
 
-// newUserEmail creates a new pgtype.ValueTranscoder for the Postgres
-// composite type 'user_email'.
-func (tr *typeResolver) newUserEmail() pgtype.ValueTranscoder {
-	return tr.newCompositeValue(
-		"user_email",
-		compositeField{name: "id", typeName: "text", defaultVal: &pgtype.Text{}},
-		compositeField{name: "email", typeName: "citext", defaultVal: &pgtype.Text{}},
-	)
-}
 
-// newBlocksArray creates a new pgtype.ValueTranscoder for the Postgres
-// '_blocks' array type.
-func (tr *typeResolver) newBlocksArray() pgtype.ValueTranscoder {
-	return tr.newArrayValue("_blocks", "blocks", tr.newBlocks)
-}
 
-// newboolArrayRaw returns all elements for the Postgres array type '_bool'
-// as a slice of interface{} for use with the pgtype.Value Set method.
-func (tr *typeResolver) newboolArrayRaw(vs []bool) []interface{} {
-	elems := make([]interface{}, len(vs))
-	for i, v := range vs {
-		elems[i] = v
-	}
-	return elems
-}
+
+var _ = addTypeToRegister("\"blocks\"")
+
+var _ = addTypeToRegister("\"user_email\"")
+
+var _ = addTypeToRegister("\"_blocks\"")
+
+
 
 const searchScreenshotsSQL = `SELECT
   ss.id,
@@ -226,34 +131,19 @@ type SearchScreenshotsParams struct {
 }
 
 type SearchScreenshotsRow struct {
-	ID     int      `json:"id"`
-	Blocks []Blocks `json:"blocks"`
+	ID     int      `json:"id" db:"id"`
+	Blocks []Blocks `json:"blocks" db:"blocks"`
 }
 
 // SearchScreenshots implements Querier.SearchScreenshots.
 func (q *DBQuerier) SearchScreenshots(ctx context.Context, params SearchScreenshotsParams) ([]SearchScreenshotsRow, error) {
-	ctx = context.WithValue(ctx, "pggen_query_name", "SearchScreenshots")
+	ctx = context.WithValue(ctx, QueryName{}, "SearchScreenshots")
 	rows, err := q.conn.Query(ctx, searchScreenshotsSQL, params.Body, params.Limit, params.Offset)
 	if err != nil {
 		return nil, fmt.Errorf("query SearchScreenshots: %w", err)
 	}
-	defer rows.Close()
-	items := []SearchScreenshotsRow{}
-	blocksArray := q.types.newBlocksArray()
-	for rows.Next() {
-		var item SearchScreenshotsRow
-		if err := rows.Scan(&item.ID, blocksArray); err != nil {
-			return nil, fmt.Errorf("scan SearchScreenshots row: %w", err)
-		}
-		if err := blocksArray.AssignTo(&item.Blocks); err != nil {
-			return nil, fmt.Errorf("assign SearchScreenshots row: %w", err)
-		}
-		items = append(items, item)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("close SearchScreenshots rows: %w", err)
-	}
-	return items, err
+
+	return pgx.CollectRows(rows, pgx.RowToStructByName[SearchScreenshotsRow])
 }
 
 const searchScreenshotsOneColSQL = `SELECT
@@ -273,28 +163,13 @@ type SearchScreenshotsOneColParams struct {
 
 // SearchScreenshotsOneCol implements Querier.SearchScreenshotsOneCol.
 func (q *DBQuerier) SearchScreenshotsOneCol(ctx context.Context, params SearchScreenshotsOneColParams) ([][]Blocks, error) {
-	ctx = context.WithValue(ctx, "pggen_query_name", "SearchScreenshotsOneCol")
+	ctx = context.WithValue(ctx, QueryName{}, "SearchScreenshotsOneCol")
 	rows, err := q.conn.Query(ctx, searchScreenshotsOneColSQL, params.Body, params.Limit, params.Offset)
 	if err != nil {
 		return nil, fmt.Errorf("query SearchScreenshotsOneCol: %w", err)
 	}
-	defer rows.Close()
-	items := [][]Blocks{}
-	blocksArray := q.types.newBlocksArray()
-	for rows.Next() {
-		var item []Blocks
-		if err := rows.Scan(blocksArray); err != nil {
-			return nil, fmt.Errorf("scan SearchScreenshotsOneCol row: %w", err)
-		}
-		if err := blocksArray.AssignTo(&item); err != nil {
-			return nil, fmt.Errorf("assign SearchScreenshotsOneCol row: %w", err)
-		}
-		items = append(items, item)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("close SearchScreenshotsOneCol rows: %w", err)
-	}
-	return items, err
+
+	return pgx.CollectRows(rows, pgx.RowTo[[]Blocks])
 }
 
 const insertScreenshotBlocksSQL = `WITH screens AS (
@@ -307,77 +182,44 @@ VALUES ($1, $2)
 RETURNING id, screenshot_id, body;`
 
 type InsertScreenshotBlocksRow struct {
-	ID           int    `json:"id"`
-	ScreenshotID int    `json:"screenshot_id"`
-	Body         string `json:"body"`
+	ID           int    `json:"id" db:"id"`
+	ScreenshotID int    `json:"screenshot_id" db:"screenshot_id"`
+	Body         string `json:"body" db:"body"`
 }
 
 // InsertScreenshotBlocks implements Querier.InsertScreenshotBlocks.
 func (q *DBQuerier) InsertScreenshotBlocks(ctx context.Context, screenshotID int, body string) (InsertScreenshotBlocksRow, error) {
-	ctx = context.WithValue(ctx, "pggen_query_name", "InsertScreenshotBlocks")
-	row := q.conn.QueryRow(ctx, insertScreenshotBlocksSQL, screenshotID, body)
-	var item InsertScreenshotBlocksRow
-	if err := row.Scan(&item.ID, &item.ScreenshotID, &item.Body); err != nil {
-		return item, fmt.Errorf("query InsertScreenshotBlocks: %w", err)
+	ctx = context.WithValue(ctx, QueryName{}, "InsertScreenshotBlocks")
+	rows, err := q.conn.Query(ctx, insertScreenshotBlocksSQL, screenshotID, body)
+	if err != nil {
+		return InsertScreenshotBlocksRow{}, fmt.Errorf("query InsertScreenshotBlocks: %w", err)
 	}
-	return item, nil
+
+	return pgx.CollectExactlyOneRow(rows, pgx.RowToStructByName[InsertScreenshotBlocksRow])
 }
 
 const arraysInputSQL = `SELECT $1::arrays;`
 
 // ArraysInput implements Querier.ArraysInput.
 func (q *DBQuerier) ArraysInput(ctx context.Context, arrays Arrays) (Arrays, error) {
-	ctx = context.WithValue(ctx, "pggen_query_name", "ArraysInput")
-	row := q.conn.QueryRow(ctx, arraysInputSQL, q.types.newArraysInit(arrays))
-	var item Arrays
-	arraysRow := q.types.newArrays()
-	if err := row.Scan(arraysRow); err != nil {
-		return item, fmt.Errorf("query ArraysInput: %w", err)
+	ctx = context.WithValue(ctx, QueryName{}, "ArraysInput")
+	rows, err := q.conn.Query(ctx, arraysInputSQL, arrays)
+	if err != nil {
+		return Arrays{}, fmt.Errorf("query ArraysInput: %w", err)
 	}
-	if err := arraysRow.AssignTo(&item); err != nil {
-		return item, fmt.Errorf("assign ArraysInput row: %w", err)
-	}
-	return item, nil
+
+	return pgx.CollectExactlyOneRow(rows, pgx.RowTo[Arrays])
 }
 
 const userEmailsSQL = `SELECT ('foo', 'bar@example.com')::user_email;`
 
 // UserEmails implements Querier.UserEmails.
 func (q *DBQuerier) UserEmails(ctx context.Context) (UserEmail, error) {
-	ctx = context.WithValue(ctx, "pggen_query_name", "UserEmails")
-	row := q.conn.QueryRow(ctx, userEmailsSQL)
-	var item UserEmail
-	rowRow := q.types.newUserEmail()
-	if err := row.Scan(rowRow); err != nil {
-		return item, fmt.Errorf("query UserEmails: %w", err)
+	ctx = context.WithValue(ctx, QueryName{}, "UserEmails")
+	rows, err := q.conn.Query(ctx, userEmailsSQL)
+	if err != nil {
+		return UserEmail{}, fmt.Errorf("query UserEmails: %w", err)
 	}
-	if err := rowRow.AssignTo(&item); err != nil {
-		return item, fmt.Errorf("assign UserEmails row: %w", err)
-	}
-	return item, nil
+
+	return pgx.CollectExactlyOneRow(rows, pgx.RowTo[UserEmail])
 }
-
-// textPreferrer wraps a pgtype.ValueTranscoder and sets the preferred encoding
-// format to text instead binary (the default). pggen uses the text format
-// when the OID is unknownOID because the binary format requires the OID.
-// Typically occurs for unregistered types.
-type textPreferrer struct {
-	pgtype.ValueTranscoder
-	typeName string
-}
-
-// PreferredParamFormat implements pgtype.ParamFormatPreferrer.
-func (t textPreferrer) PreferredParamFormat() int16 { return pgtype.TextFormatCode }
-
-func (t textPreferrer) NewTypeValue() pgtype.Value {
-	return textPreferrer{ValueTranscoder: pgtype.NewValue(t.ValueTranscoder).(pgtype.ValueTranscoder), typeName: t.typeName}
-}
-
-func (t textPreferrer) TypeName() string {
-	return t.typeName
-}
-
-// unknownOID means we don't know the OID for a type. This is okay for decoding
-// because pgx call DecodeText or DecodeBinary without requiring the OID. For
-// encoding parameters, pggen uses textPreferrer if the OID is unknown.
-const unknownOID = 0

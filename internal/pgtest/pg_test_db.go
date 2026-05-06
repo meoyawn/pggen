@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 // CleanupFunc deletes the schema and all database objects.
@@ -53,6 +54,12 @@ func NewPostgresSchemaString(t *testing.T, sql string, opts ...Option) (*pgx.Con
 	if _, err := schemaConn.Exec(ctx, sql); err != nil {
 		t.Fatalf("run sql: %s", err)
 	}
+	if err := registerExtensionTypes(ctx, schemaConn); err != nil {
+		t.Fatalf("register extension types: %s", err)
+	}
+	if err := registerSchemaTypes(ctx, schemaConn); err != nil {
+		t.Fatalf("register schema types: %s", err)
+	}
 
 	cleanup := func() {
 		ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
@@ -68,6 +75,79 @@ func NewPostgresSchemaString(t *testing.T, sql string, opts ...Option) (*pgx.Con
 		}
 	}
 	return schemaConn, cleanup
+}
+
+func registerExtensionTypes(ctx context.Context, conn *pgx.Conn) error {
+	rows, err := conn.Query(ctx, `
+SELECT typname, oid
+FROM pg_type
+WHERE typname IN ('citext')
+  AND pg_type_is_visible(oid)`)
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var name string
+		var oid uint32
+		if err := rows.Scan(&name, &oid); err != nil {
+			return err
+		}
+		conn.TypeMap().RegisterType(&pgtype.Type{
+			Name:  name,
+			OID:   oid,
+			Codec: pgtype.TextCodec{},
+		})
+	}
+	return rows.Err()
+}
+
+func registerSchemaTypes(ctx context.Context, conn *pgx.Conn) error {
+	rows, err := conn.Query(ctx, `
+SELECT format('%I.%I', nsp.nspname, typ.typname)
+FROM pg_type typ
+JOIN pg_namespace nsp ON nsp.oid = typ.typnamespace
+WHERE typ.typnamespace = current_schema()::regnamespace
+  AND (typ.typtype IN ('c', 'd', 'e') OR (typ.typtype = 'b' AND typ.typelem <> 0 AND typ.typname LIKE '\_%'))
+ORDER BY typ.typname`)
+	if err != nil {
+		return err
+	}
+	var typeNames []string
+	for rows.Next() {
+		var name string
+		if err := rows.Scan(&name); err != nil {
+			rows.Close()
+			return err
+		}
+		typeNames = append(typeNames, name)
+	}
+	if err := rows.Err(); err != nil {
+		rows.Close()
+		return err
+	}
+	rows.Close()
+
+	pending := typeNames
+	for len(pending) > 0 {
+		remaining := pending[:0]
+		loaded := 0
+		for _, name := range pending {
+			dt, err := conn.LoadType(ctx, name)
+			if err != nil {
+				remaining = append(remaining, name)
+				continue
+			}
+			conn.TypeMap().RegisterType(dt)
+			loaded++
+		}
+		if loaded == 0 {
+			return nil
+		}
+		pending = remaining
+	}
+	return nil
 }
 
 func postgresConnString() string {

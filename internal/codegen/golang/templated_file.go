@@ -153,46 +153,20 @@ func (tq TemplatedQuery) EmitParamStruct() string {
 // EmitParamNames emits the TemplatedQuery.Inputs into comma separated names
 // for use in a method invocation.
 func (tq TemplatedQuery) EmitParamNames() string {
-	appendParam := func(sb *strings.Builder, typ gotype.Type, name string) {
-		switch typ := gotype.UnwrapNestedType(typ).(type) {
-		case *gotype.CompositeType:
-			sb.WriteString("q.types.")
-			sb.WriteString(NameCompositeInitFunc(typ))
-			sb.WriteString("(")
-			sb.WriteString(name)
-			sb.WriteString(")")
-		case *gotype.ArrayType:
-			if gotype.IsPgxSupportedArray(typ) {
-				sb.WriteString(name)
-				break
-			}
-			switch gotype.UnwrapNestedType(typ.Elem).(type) {
-			case *gotype.CompositeType, *gotype.EnumType:
-				sb.WriteString("q.types.")
-				sb.WriteString(NameArrayInitFunc(typ))
-				sb.WriteString("(")
-				sb.WriteString(name)
-				sb.WriteString(")")
-			default:
-				sb.WriteString(name)
-			}
-		default:
-			sb.WriteString(name)
-		}
-	}
 	switch {
 	case tq.isInlineParams():
 		sb := &strings.Builder{}
 		for _, input := range tq.Inputs {
 			sb.WriteString(", ")
-			appendParam(sb, input.Type, input.LowerName)
+			sb.WriteString(input.LowerName)
 		}
 		return sb.String()
 	default:
 		sb := &strings.Builder{}
 		for _, input := range tq.Inputs {
 			sb.WriteString(", ")
-			appendParam(sb, input.Type, "params."+input.UpperName)
+			sb.WriteString("params.")
+			sb.WriteString(input.UpperName)
 		}
 		return sb.String()
 	}
@@ -296,6 +270,58 @@ func (tq TemplatedQuery) EmitCollectionFunc() (string, error) {
 	}
 }
 
+func (tq TemplatedQuery) EmitRowToFunc() (string, error) {
+	switch tq.ResultKind {
+	case ast.ResultKindExec:
+		return "", fmt.Errorf("cannot EmitRowToFunc for :exec query %s", tq.Name)
+	case ast.ResultKindMany, ast.ResultKindOne:
+		if len(tq.Outputs) == 1 {
+			return "pgx.RowTo", nil
+		}
+		return "pgx.RowToStructByName", nil
+	default:
+		return "", fmt.Errorf("unhandled EmitRowToFunc type: %s", tq.ResultKind)
+	}
+}
+
+func (tq TemplatedQuery) EmitRowMapper() (string, error) {
+	rowToFunc, err := tq.EmitRowToFunc()
+	if err != nil {
+		return "", err
+	}
+	resultType := tq.EmitSingularResultType()
+	if len(tq.ScanCols) == len(tq.Outputs) {
+		return fmt.Sprintf("%s[%s]", rowToFunc, resultType), nil
+	}
+	scanTargets, err := tq.EmitScanTargets()
+	if err != nil {
+		return "", err
+	}
+	return fmt.Sprintf(`func(row pgx.CollectableRow) (%s, error) {
+	var item %s
+	if err := row.Scan(%s); err != nil {
+		return item, err
+	}
+	return item, nil
+}`, resultType, resultType, scanTargets), nil
+}
+
+func (tq TemplatedQuery) EmitScanTargets() (string, error) {
+	targets := make([]string, 0, len(tq.ScanCols))
+	for _, col := range tq.ScanCols {
+		if _, ok := gotype.UnwrapNestedType(col.Type).(*gotype.VoidType); ok {
+			targets = append(targets, "nil")
+			continue
+		}
+		if len(tq.Outputs) == 1 {
+			targets = append(targets, "&item")
+			continue
+		}
+		targets = append(targets, "&item."+col.UpperName)
+	}
+	return strings.Join(targets, ", "), nil
+}
+
 // EmitSingularResultType returns the string representing a single element
 // of the overall query result type, like FindAuthorsRow when the overall return
 // type is []FindAuthorsRow.
@@ -384,15 +410,18 @@ func (tq TemplatedQuery) EmitZeroResult() (string, error) {
 		case strings.HasPrefix(typ, "*"):
 			return "nil", nil // nil pointer
 		}
+		if _, ok := gotype.UnwrapNestedType(tq.Outputs[0].Type).(*gotype.EnumType); ok {
+			return `""`, nil
+		}
 		switch typ {
-		case "int", "int32", "int64", "float32", "float64":
+		case "int", "int32", "int64", "float32", "float64", "uint", "uint32", "uint64":
 			return "0", nil
 		case "string":
 			return `""`, nil
 		case "bool":
 			return "false", nil
 		default:
-			return typ + "{}", nil // won't work for type Foo int
+			return tq.Outputs[0].QualType + "{}", nil // won't work for type Foo int
 		}
 	default:
 		return "", fmt.Errorf("unhandled EmitZeroResult kind: %s", tq.ResultKind)
@@ -476,6 +505,8 @@ func (tq TemplatedQuery) EmitRowStruct() string {
 			// JSON struct tag
 			sb.WriteString(strings.Repeat(" ", maxTypeLen-len(out.QualType)))
 			sb.WriteString("`json:")
+			sb.WriteString(strconv.Quote(out.PgName))
+			sb.WriteString(" db:")
 			sb.WriteString(strconv.Quote(out.PgName))
 			sb.WriteString("`")
 			sb.WriteRune('\n')

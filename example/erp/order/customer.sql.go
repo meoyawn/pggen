@@ -10,6 +10,8 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+type QueryName struct{}
+
 // Querier is a typesafe Go interface backed by SQL queries.
 type Querier interface {
 	CreateTenant(ctx context.Context, key string, name string) (CreateTenantRow, error)
@@ -30,8 +32,7 @@ type Querier interface {
 var _ Querier = &DBQuerier{}
 
 type DBQuerier struct {
-	conn  genericConn   // underlying Postgres transport to use
-	types *typeResolver // resolve types by name
+	conn genericConn
 }
 
 // genericConn is a connection like *pgx.Conn, pgx.Tx, or *pgxpool.Pool.
@@ -43,36 +44,41 @@ type genericConn interface {
 
 // NewQuerier creates a DBQuerier that implements Querier.
 func NewQuerier(conn genericConn) *DBQuerier {
-	return &DBQuerier{conn: conn, types: newTypeResolver()}
+	return &DBQuerier{conn: conn}
 }
 
-// typeResolver looks up the pgtype.ValueTranscoder by Postgres type name.
-type typeResolver struct {
-	connInfo *pgtype.ConnInfo // types by Postgres type name
-}
-
-func newTypeResolver() *typeResolver {
-	ci := pgtype.NewConnInfo()
-	return &typeResolver{connInfo: ci}
-}
-
-// findValue find the OID, and pgtype.ValueTranscoder for a Postgres type name.
-func (tr *typeResolver) findValue(name string) (uint32, pgtype.ValueTranscoder, bool) {
-	typ, ok := tr.connInfo.DataTypeForName(name)
-	if !ok {
-		return 0, nil, false
+// RegisterTypes loads custom PostgreSQL types into conn's pgx type map.
+func RegisterTypes(ctx context.Context, conn *pgx.Conn) error {
+	pending := append([]string(nil), typesToRegister...)
+	for len(pending) > 0 {
+		remaining := pending[:0]
+		loaded := 0
+		var lastErr error
+		var lastType string
+		for _, typ := range pending {
+			dt, err := conn.LoadType(ctx, typ)
+			if err != nil {
+				lastErr = err
+				lastType = typ
+				remaining = append(remaining, typ)
+				continue
+			}
+			conn.TypeMap().RegisterType(dt)
+			loaded++
+		}
+		if loaded == 0 {
+			return fmt.Errorf("load PostgreSQL type %q: %w", lastType, lastErr)
+		}
+		pending = remaining
 	}
-	v := pgtype.NewValue(typ.Value)
-	return typ.OID, v.(pgtype.ValueTranscoder), true
+	return nil
 }
 
-// setValue sets the value of a ValueTranscoder to a value that should always
-// work and panics if it fails.
-func (tr *typeResolver) setValue(vt pgtype.ValueTranscoder, val interface{}) pgtype.ValueTranscoder {
-	if err := vt.Set(val); err != nil {
-		panic(fmt.Sprintf("set ValueTranscoder %T to %+v: %s", vt, val, err))
-	}
-	return vt
+var typesToRegister = []string{}
+
+func addTypeToRegister(typ string) struct{} {
+	typesToRegister = append(typesToRegister, typ)
+	return struct{}{}
 }
 
 const createTenantSQL = `INSERT INTO tenant (tenant_id, name)
@@ -80,20 +86,20 @@ VALUES (base36_decode($1::text)::tenant_id, $2::text)
 RETURNING *;`
 
 type CreateTenantRow struct {
-	TenantID int     `json:"tenant_id"`
-	Rname    *string `json:"rname"`
-	Name     string  `json:"name"`
+	TenantID int     `json:"tenant_id" db:"tenant_id"`
+	Rname    *string `json:"rname" db:"rname"`
+	Name     string  `json:"name" db:"name"`
 }
 
 // CreateTenant implements Querier.CreateTenant.
 func (q *DBQuerier) CreateTenant(ctx context.Context, key string, name string) (CreateTenantRow, error) {
-	ctx = context.WithValue(ctx, "pggen_query_name", "CreateTenant")
-	row := q.conn.QueryRow(ctx, createTenantSQL, key, name)
-	var item CreateTenantRow
-	if err := row.Scan(&item.TenantID, &item.Rname, &item.Name); err != nil {
-		return item, fmt.Errorf("query CreateTenant: %w", err)
+	ctx = context.WithValue(ctx, QueryName{}, "CreateTenant")
+	rows, err := q.conn.Query(ctx, createTenantSQL, key, name)
+	if err != nil {
+		return CreateTenantRow{}, fmt.Errorf("query CreateTenant: %w", err)
 	}
-	return item, nil
+
+	return pgx.CollectExactlyOneRow(rows, pgx.RowToStructByName[CreateTenantRow])
 }
 
 const findOrdersByCustomerSQL = `SELECT *
@@ -101,32 +107,21 @@ FROM orders
 WHERE customer_id = $1;`
 
 type FindOrdersByCustomerRow struct {
-	OrderID    int32              `json:"order_id"`
-	OrderDate  pgtype.Timestamptz `json:"order_date"`
-	OrderTotal pgtype.Numeric     `json:"order_total"`
-	CustomerID *int32             `json:"customer_id"`
+	OrderID    int32              `json:"order_id" db:"order_id"`
+	OrderDate  pgtype.Timestamptz `json:"order_date" db:"order_date"`
+	OrderTotal pgtype.Numeric     `json:"order_total" db:"order_total"`
+	CustomerID *int32             `json:"customer_id" db:"customer_id"`
 }
 
 // FindOrdersByCustomer implements Querier.FindOrdersByCustomer.
 func (q *DBQuerier) FindOrdersByCustomer(ctx context.Context, customerID int32) ([]FindOrdersByCustomerRow, error) {
-	ctx = context.WithValue(ctx, "pggen_query_name", "FindOrdersByCustomer")
+	ctx = context.WithValue(ctx, QueryName{}, "FindOrdersByCustomer")
 	rows, err := q.conn.Query(ctx, findOrdersByCustomerSQL, customerID)
 	if err != nil {
 		return nil, fmt.Errorf("query FindOrdersByCustomer: %w", err)
 	}
-	defer rows.Close()
-	items := []FindOrdersByCustomerRow{}
-	for rows.Next() {
-		var item FindOrdersByCustomerRow
-		if err := rows.Scan(&item.OrderID, &item.OrderDate, &item.OrderTotal, &item.CustomerID); err != nil {
-			return nil, fmt.Errorf("scan FindOrdersByCustomer row: %w", err)
-		}
-		items = append(items, item)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("close FindOrdersByCustomer rows: %w", err)
-	}
-	return items, err
+
+	return pgx.CollectRows(rows, pgx.RowToStructByName[FindOrdersByCustomerRow])
 }
 
 const findProductsInOrderSQL = `SELECT o.order_id, p.product_id, p.name
@@ -136,31 +131,20 @@ FROM orders o
 WHERE o.order_id = $1;`
 
 type FindProductsInOrderRow struct {
-	OrderID   *int32  `json:"order_id"`
-	ProductID *int32  `json:"product_id"`
-	Name      *string `json:"name"`
+	OrderID   *int32  `json:"order_id" db:"order_id"`
+	ProductID *int32  `json:"product_id" db:"product_id"`
+	Name      *string `json:"name" db:"name"`
 }
 
 // FindProductsInOrder implements Querier.FindProductsInOrder.
 func (q *DBQuerier) FindProductsInOrder(ctx context.Context, orderID int32) ([]FindProductsInOrderRow, error) {
-	ctx = context.WithValue(ctx, "pggen_query_name", "FindProductsInOrder")
+	ctx = context.WithValue(ctx, QueryName{}, "FindProductsInOrder")
 	rows, err := q.conn.Query(ctx, findProductsInOrderSQL, orderID)
 	if err != nil {
 		return nil, fmt.Errorf("query FindProductsInOrder: %w", err)
 	}
-	defer rows.Close()
-	items := []FindProductsInOrderRow{}
-	for rows.Next() {
-		var item FindProductsInOrderRow
-		if err := rows.Scan(&item.OrderID, &item.ProductID, &item.Name); err != nil {
-			return nil, fmt.Errorf("scan FindProductsInOrder row: %w", err)
-		}
-		items = append(items, item)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("close FindProductsInOrder rows: %w", err)
-	}
-	return items, err
+
+	return pgx.CollectRows(rows, pgx.RowToStructByName[FindProductsInOrderRow])
 }
 
 const insertCustomerSQL = `INSERT INTO customer (first_name, last_name, email)
@@ -174,21 +158,21 @@ type InsertCustomerParams struct {
 }
 
 type InsertCustomerRow struct {
-	CustomerID int32  `json:"customer_id"`
-	FirstName  string `json:"first_name"`
-	LastName   string `json:"last_name"`
-	Email      string `json:"email"`
+	CustomerID int32  `json:"customer_id" db:"customer_id"`
+	FirstName  string `json:"first_name" db:"first_name"`
+	LastName   string `json:"last_name" db:"last_name"`
+	Email      string `json:"email" db:"email"`
 }
 
 // InsertCustomer implements Querier.InsertCustomer.
 func (q *DBQuerier) InsertCustomer(ctx context.Context, params InsertCustomerParams) (InsertCustomerRow, error) {
-	ctx = context.WithValue(ctx, "pggen_query_name", "InsertCustomer")
-	row := q.conn.QueryRow(ctx, insertCustomerSQL, params.FirstName, params.LastName, params.Email)
-	var item InsertCustomerRow
-	if err := row.Scan(&item.CustomerID, &item.FirstName, &item.LastName, &item.Email); err != nil {
-		return item, fmt.Errorf("query InsertCustomer: %w", err)
+	ctx = context.WithValue(ctx, QueryName{}, "InsertCustomer")
+	rows, err := q.conn.Query(ctx, insertCustomerSQL, params.FirstName, params.LastName, params.Email)
+	if err != nil {
+		return InsertCustomerRow{}, fmt.Errorf("query InsertCustomer: %w", err)
 	}
-	return item, nil
+
+	return pgx.CollectExactlyOneRow(rows, pgx.RowToStructByName[InsertCustomerRow])
 }
 
 const insertOrderSQL = `INSERT INTO orders (order_date, order_total, customer_id)
@@ -202,44 +186,19 @@ type InsertOrderParams struct {
 }
 
 type InsertOrderRow struct {
-	OrderID    int32              `json:"order_id"`
-	OrderDate  pgtype.Timestamptz `json:"order_date"`
-	OrderTotal pgtype.Numeric     `json:"order_total"`
-	CustomerID *int32             `json:"customer_id"`
+	OrderID    int32              `json:"order_id" db:"order_id"`
+	OrderDate  pgtype.Timestamptz `json:"order_date" db:"order_date"`
+	OrderTotal pgtype.Numeric     `json:"order_total" db:"order_total"`
+	CustomerID *int32             `json:"customer_id" db:"customer_id"`
 }
 
 // InsertOrder implements Querier.InsertOrder.
 func (q *DBQuerier) InsertOrder(ctx context.Context, params InsertOrderParams) (InsertOrderRow, error) {
-	ctx = context.WithValue(ctx, "pggen_query_name", "InsertOrder")
-	row := q.conn.QueryRow(ctx, insertOrderSQL, params.OrderDate, params.OrderTotal, params.CustID)
-	var item InsertOrderRow
-	if err := row.Scan(&item.OrderID, &item.OrderDate, &item.OrderTotal, &item.CustomerID); err != nil {
-		return item, fmt.Errorf("query InsertOrder: %w", err)
+	ctx = context.WithValue(ctx, QueryName{}, "InsertOrder")
+	rows, err := q.conn.Query(ctx, insertOrderSQL, params.OrderDate, params.OrderTotal, params.CustID)
+	if err != nil {
+		return InsertOrderRow{}, fmt.Errorf("query InsertOrder: %w", err)
 	}
-	return item, nil
+
+	return pgx.CollectExactlyOneRow(rows, pgx.RowToStructByName[InsertOrderRow])
 }
-
-// textPreferrer wraps a pgtype.ValueTranscoder and sets the preferred encoding
-// format to text instead binary (the default). pggen uses the text format
-// when the OID is unknownOID because the binary format requires the OID.
-// Typically occurs for unregistered types.
-type textPreferrer struct {
-	pgtype.ValueTranscoder
-	typeName string
-}
-
-// PreferredParamFormat implements pgtype.ParamFormatPreferrer.
-func (t textPreferrer) PreferredParamFormat() int16 { return pgtype.TextFormatCode }
-
-func (t textPreferrer) NewTypeValue() pgtype.Value {
-	return textPreferrer{ValueTranscoder: pgtype.NewValue(t.ValueTranscoder).(pgtype.ValueTranscoder), typeName: t.typeName}
-}
-
-func (t textPreferrer) TypeName() string {
-	return t.typeName
-}
-
-// unknownOID means we don't know the OID for a type. This is okay for decoding
-// because pgx call DecodeText or DecodeBinary without requiring the OID. For
-// encoding parameters, pggen uses textPreferrer if the OID is unknown.
-const unknownOID = 0

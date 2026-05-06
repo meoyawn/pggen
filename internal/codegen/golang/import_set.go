@@ -24,13 +24,20 @@ func (s *ImportSet) AddPackage(p string) {
 // AddType adds all fully qualified package paths needed for type and any child
 // types.
 func (s *ImportSet) AddType(typ gotype.Type) {
-	s.AddPackage(typ.Import())
-	comp, ok := typ.(*gotype.CompositeType)
-	if !ok {
-		return
-	}
-	for _, childType := range comp.FieldTypes {
-		s.AddType(childType)
+	switch typ := typ.(type) {
+	case *gotype.ArrayType:
+		s.AddType(typ.Elem)
+	case *gotype.CompositeType:
+		for _, childType := range typ.FieldTypes {
+			s.AddType(childType)
+		}
+	case *gotype.ImportType:
+		s.AddPackage(typ.PkgPath)
+		s.AddType(typ.Type)
+	case *gotype.PointerType:
+		s.AddType(typ.Elem)
+	default:
+		s.AddPackage(typ.Import())
 	}
 }
 

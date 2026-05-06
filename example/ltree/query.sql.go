@@ -10,11 +10,13 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+type QueryName struct{}
+
 // Querier is a typesafe Go interface backed by SQL queries.
 type Querier interface {
 	FindTopScienceChildren(ctx context.Context) ([]pgtype.Text, error)
 
-	FindTopScienceChildrenAgg(ctx context.Context) (pgtype.TextArray, error)
+	FindTopScienceChildrenAgg(ctx context.Context) ([]string, error)
 
 	InsertSampleData(ctx context.Context) (pgconn.CommandTag, error)
 
@@ -24,8 +26,7 @@ type Querier interface {
 var _ Querier = &DBQuerier{}
 
 type DBQuerier struct {
-	conn  genericConn   // underlying Postgres transport to use
-	types *typeResolver // resolve types by name
+	conn genericConn
 }
 
 // genericConn is a connection like *pgx.Conn, pgx.Tx, or *pgxpool.Pool.
@@ -37,36 +38,41 @@ type genericConn interface {
 
 // NewQuerier creates a DBQuerier that implements Querier.
 func NewQuerier(conn genericConn) *DBQuerier {
-	return &DBQuerier{conn: conn, types: newTypeResolver()}
+	return &DBQuerier{conn: conn}
 }
 
-// typeResolver looks up the pgtype.ValueTranscoder by Postgres type name.
-type typeResolver struct {
-	connInfo *pgtype.ConnInfo // types by Postgres type name
-}
-
-func newTypeResolver() *typeResolver {
-	ci := pgtype.NewConnInfo()
-	return &typeResolver{connInfo: ci}
-}
-
-// findValue find the OID, and pgtype.ValueTranscoder for a Postgres type name.
-func (tr *typeResolver) findValue(name string) (uint32, pgtype.ValueTranscoder, bool) {
-	typ, ok := tr.connInfo.DataTypeForName(name)
-	if !ok {
-		return 0, nil, false
+// RegisterTypes loads custom PostgreSQL types into conn's pgx type map.
+func RegisterTypes(ctx context.Context, conn *pgx.Conn) error {
+	pending := append([]string(nil), typesToRegister...)
+	for len(pending) > 0 {
+		remaining := pending[:0]
+		loaded := 0
+		var lastErr error
+		var lastType string
+		for _, typ := range pending {
+			dt, err := conn.LoadType(ctx, typ)
+			if err != nil {
+				lastErr = err
+				lastType = typ
+				remaining = append(remaining, typ)
+				continue
+			}
+			conn.TypeMap().RegisterType(dt)
+			loaded++
+		}
+		if loaded == 0 {
+			return fmt.Errorf("load PostgreSQL type %q: %w", lastType, lastErr)
+		}
+		pending = remaining
 	}
-	v := pgtype.NewValue(typ.Value)
-	return typ.OID, v.(pgtype.ValueTranscoder), true
+	return nil
 }
 
-// setValue sets the value of a ValueTranscoder to a value that should always
-// work and panics if it fails.
-func (tr *typeResolver) setValue(vt pgtype.ValueTranscoder, val interface{}) pgtype.ValueTranscoder {
-	if err := vt.Set(val); err != nil {
-		panic(fmt.Sprintf("set ValueTranscoder %T to %+v: %s", vt, val, err))
-	}
-	return vt
+var typesToRegister = []string{}
+
+func addTypeToRegister(typ string) struct{} {
+	typesToRegister = append(typesToRegister, typ)
+	return struct{}{}
 }
 
 const findTopScienceChildrenSQL = `SELECT path
@@ -75,24 +81,13 @@ WHERE path <@ 'Top.Science';`
 
 // FindTopScienceChildren implements Querier.FindTopScienceChildren.
 func (q *DBQuerier) FindTopScienceChildren(ctx context.Context) ([]pgtype.Text, error) {
-	ctx = context.WithValue(ctx, "pggen_query_name", "FindTopScienceChildren")
+	ctx = context.WithValue(ctx, QueryName{}, "FindTopScienceChildren")
 	rows, err := q.conn.Query(ctx, findTopScienceChildrenSQL)
 	if err != nil {
 		return nil, fmt.Errorf("query FindTopScienceChildren: %w", err)
 	}
-	defer rows.Close()
-	items := []pgtype.Text{}
-	for rows.Next() {
-		var item pgtype.Text
-		if err := rows.Scan(&item); err != nil {
-			return nil, fmt.Errorf("scan FindTopScienceChildren row: %w", err)
-		}
-		items = append(items, item)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("close FindTopScienceChildren rows: %w", err)
-	}
-	return items, err
+
+	return pgx.CollectRows(rows, pgx.RowTo[pgtype.Text])
 }
 
 const findTopScienceChildrenAggSQL = `SELECT array_agg(path)
@@ -100,14 +95,14 @@ FROM test
 WHERE path <@ 'Top.Science';`
 
 // FindTopScienceChildrenAgg implements Querier.FindTopScienceChildrenAgg.
-func (q *DBQuerier) FindTopScienceChildrenAgg(ctx context.Context) (pgtype.TextArray, error) {
-	ctx = context.WithValue(ctx, "pggen_query_name", "FindTopScienceChildrenAgg")
-	row := q.conn.QueryRow(ctx, findTopScienceChildrenAggSQL)
-	var item pgtype.TextArray
-	if err := row.Scan(&item); err != nil {
-		return item, fmt.Errorf("query FindTopScienceChildrenAgg: %w", err)
+func (q *DBQuerier) FindTopScienceChildrenAgg(ctx context.Context) ([]string, error) {
+	ctx = context.WithValue(ctx, QueryName{}, "FindTopScienceChildrenAgg")
+	rows, err := q.conn.Query(ctx, findTopScienceChildrenAggSQL)
+	if err != nil {
+		return nil, fmt.Errorf("query FindTopScienceChildrenAgg: %w", err)
 	}
-	return item, nil
+
+	return pgx.CollectExactlyOneRow(rows, pgx.RowTo[[]string])
 }
 
 const insertSampleDataSQL = `INSERT INTO test
@@ -127,10 +122,10 @@ VALUES ('Top'),
 
 // InsertSampleData implements Querier.InsertSampleData.
 func (q *DBQuerier) InsertSampleData(ctx context.Context) (pgconn.CommandTag, error) {
-	ctx = context.WithValue(ctx, "pggen_query_name", "InsertSampleData")
+	ctx = context.WithValue(ctx, QueryName{}, "InsertSampleData")
 	cmdTag, err := q.conn.Exec(ctx, insertSampleDataSQL)
 	if err != nil {
-		return cmdTag, fmt.Errorf("exec query InsertSampleData: %w", err)
+		return pgconn.CommandTag{}, fmt.Errorf("exec query InsertSampleData: %w", err)
 	}
 	return cmdTag, err
 }
@@ -147,42 +142,17 @@ const findLtreeInputSQL = `SELECT
   ($2::text[])::ltree[] AS text_arr;`
 
 type FindLtreeInputRow struct {
-	Ltree   pgtype.Text      `json:"ltree"`
-	TextArr pgtype.TextArray `json:"text_arr"`
+	Ltree   pgtype.Text `json:"ltree" db:"ltree"`
+	TextArr []string    `json:"text_arr" db:"text_arr"`
 }
 
 // FindLtreeInput implements Querier.FindLtreeInput.
 func (q *DBQuerier) FindLtreeInput(ctx context.Context, inLtree pgtype.Text, inLtreeArray []string) (FindLtreeInputRow, error) {
-	ctx = context.WithValue(ctx, "pggen_query_name", "FindLtreeInput")
-	row := q.conn.QueryRow(ctx, findLtreeInputSQL, inLtree, inLtreeArray)
-	var item FindLtreeInputRow
-	if err := row.Scan(&item.Ltree, &item.TextArr); err != nil {
-		return item, fmt.Errorf("query FindLtreeInput: %w", err)
+	ctx = context.WithValue(ctx, QueryName{}, "FindLtreeInput")
+	rows, err := q.conn.Query(ctx, findLtreeInputSQL, inLtree, inLtreeArray)
+	if err != nil {
+		return FindLtreeInputRow{}, fmt.Errorf("query FindLtreeInput: %w", err)
 	}
-	return item, nil
+
+	return pgx.CollectExactlyOneRow(rows, pgx.RowToStructByName[FindLtreeInputRow])
 }
-
-// textPreferrer wraps a pgtype.ValueTranscoder and sets the preferred encoding
-// format to text instead binary (the default). pggen uses the text format
-// when the OID is unknownOID because the binary format requires the OID.
-// Typically occurs for unregistered types.
-type textPreferrer struct {
-	pgtype.ValueTranscoder
-	typeName string
-}
-
-// PreferredParamFormat implements pgtype.ParamFormatPreferrer.
-func (t textPreferrer) PreferredParamFormat() int16 { return pgtype.TextFormatCode }
-
-func (t textPreferrer) NewTypeValue() pgtype.Value {
-	return textPreferrer{ValueTranscoder: pgtype.NewValue(t.ValueTranscoder).(pgtype.ValueTranscoder), typeName: t.typeName}
-}
-
-func (t textPreferrer) TypeName() string {
-	return t.typeName
-}
-
-// unknownOID means we don't know the OID for a type. This is okay for decoding
-// because pgx call DecodeText or DecodeBinary without requiring the OID. For
-// encoding parameters, pggen uses textPreferrer if the OID is unknown.
-const unknownOID = 0

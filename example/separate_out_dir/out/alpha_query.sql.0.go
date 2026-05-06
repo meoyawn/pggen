@@ -7,8 +7,9 @@ import (
 	"fmt"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
-	"github.com/jackc/pgx/v5/pgtype"
 )
+
+type QueryName struct{}
 
 // Querier is a typesafe Go interface backed by SQL queries.
 type Querier interface {
@@ -24,8 +25,7 @@ type Querier interface {
 var _ Querier = &DBQuerier{}
 
 type DBQuerier struct {
-	conn  genericConn   // underlying Postgres transport to use
-	types *typeResolver // resolve types by name
+	conn genericConn
 }
 
 // genericConn is a connection like *pgx.Conn, pgx.Tx, or *pgxpool.Pool.
@@ -37,160 +37,76 @@ type genericConn interface {
 
 // NewQuerier creates a DBQuerier that implements Querier.
 func NewQuerier(conn genericConn) *DBQuerier {
-	return &DBQuerier{conn: conn, types: newTypeResolver()}
+	return &DBQuerier{conn: conn}
 }
 
 // Alpha represents the Postgres composite type "alpha".
 type Alpha struct {
-	Key *string `json:"key"`
+	Key *string `json:"key" db:"key"`
 }
 
-// typeResolver looks up the pgtype.ValueTranscoder by Postgres type name.
-type typeResolver struct {
-	connInfo *pgtype.ConnInfo // types by Postgres type name
-}
-
-func newTypeResolver() *typeResolver {
-	ci := pgtype.NewConnInfo()
-	return &typeResolver{connInfo: ci}
-}
-
-// findValue find the OID, and pgtype.ValueTranscoder for a Postgres type name.
-func (tr *typeResolver) findValue(name string) (uint32, pgtype.ValueTranscoder, bool) {
-	typ, ok := tr.connInfo.DataTypeForName(name)
-	if !ok {
-		return 0, nil, false
-	}
-	v := pgtype.NewValue(typ.Value)
-	return typ.OID, v.(pgtype.ValueTranscoder), true
-}
-
-// setValue sets the value of a ValueTranscoder to a value that should always
-// work and panics if it fails.
-func (tr *typeResolver) setValue(vt pgtype.ValueTranscoder, val interface{}) pgtype.ValueTranscoder {
-	if err := vt.Set(val); err != nil {
-		panic(fmt.Sprintf("set ValueTranscoder %T to %+v: %s", vt, val, err))
-	}
-	return vt
-}
-
-type compositeField struct {
-	name       string                 // name of the field
-	typeName   string                 // Postgres type name
-	defaultVal pgtype.ValueTranscoder // default value to use
-}
-
-func (tr *typeResolver) newCompositeValue(name string, fields ...compositeField) pgtype.ValueTranscoder {
-	if _, val, ok := tr.findValue(name); ok {
-		return val
-	}
-	fs := make([]pgtype.CompositeTypeField, len(fields))
-	vals := make([]pgtype.ValueTranscoder, len(fields))
-	isBinaryOk := true
-	for i, field := range fields {
-		oid, val, ok := tr.findValue(field.typeName)
-		if !ok {
-			oid = unknownOID
-			val = field.defaultVal
+// RegisterTypes loads custom PostgreSQL types into conn's pgx type map.
+func RegisterTypes(ctx context.Context, conn *pgx.Conn) error {
+	pending := append([]string(nil), typesToRegister...)
+	for len(pending) > 0 {
+		remaining := pending[:0]
+		loaded := 0
+		var lastErr error
+		var lastType string
+		for _, typ := range pending {
+			dt, err := conn.LoadType(ctx, typ)
+			if err != nil {
+				lastErr = err
+				lastType = typ
+				remaining = append(remaining, typ)
+				continue
+			}
+			conn.TypeMap().RegisterType(dt)
+			loaded++
 		}
-		isBinaryOk = isBinaryOk && oid != unknownOID
-		fs[i] = pgtype.CompositeTypeField{Name: field.name, OID: oid}
-		vals[i] = val
+		if loaded == 0 {
+			return fmt.Errorf("load PostgreSQL type %q: %w", lastType, lastErr)
+		}
+		pending = remaining
 	}
-	// Okay to ignore error because it's only thrown when the number of field
-	// names does not equal the number of ValueTranscoders.
-	typ, _ := pgtype.NewCompositeTypeValues(name, fs, vals)
-	if !isBinaryOk {
-		return textPreferrer{ValueTranscoder: typ, typeName: name}
-	}
-	return typ
+	return nil
 }
 
-func (tr *typeResolver) newArrayValue(name, elemName string, defaultVal func() pgtype.ValueTranscoder) pgtype.ValueTranscoder {
-	if _, val, ok := tr.findValue(name); ok {
-		return val
-	}
-	elemOID, elemVal, ok := tr.findValue(elemName)
-	elemValFunc := func() pgtype.ValueTranscoder {
-		return pgtype.NewValue(elemVal).(pgtype.ValueTranscoder)
-	}
-	if !ok {
-		elemOID = unknownOID
-		elemValFunc = defaultVal
-	}
-	typ := pgtype.NewArrayType(name, elemOID, elemValFunc)
-	if elemOID == unknownOID {
-		return textPreferrer{ValueTranscoder: typ, typeName: name}
-	}
-	return typ
+var typesToRegister = []string{}
+
+func addTypeToRegister(typ string) struct{} {
+	typesToRegister = append(typesToRegister, typ)
+	return struct{}{}
 }
 
-// newAlpha creates a new pgtype.ValueTranscoder for the Postgres
-// composite type 'alpha'.
-func (tr *typeResolver) newAlpha() pgtype.ValueTranscoder {
-	return tr.newCompositeValue(
-		"alpha",
-		compositeField{name: "key", typeName: "text", defaultVal: &pgtype.Text{}},
-	)
-}
 
-// newAlphaArray creates a new pgtype.ValueTranscoder for the Postgres
-// '_alpha' array type.
-func (tr *typeResolver) newAlphaArray() pgtype.ValueTranscoder {
-	return tr.newArrayValue("_alpha", "alpha", tr.newAlpha)
-}
+
+var _ = addTypeToRegister("\"alpha\"")
+
+var _ = addTypeToRegister("\"_alpha\"")
 
 const alphaNestedSQL = `SELECT 'alpha_nested' as output;`
 
 // AlphaNested implements Querier.AlphaNested.
 func (q *DBQuerier) AlphaNested(ctx context.Context) (string, error) {
-	ctx = context.WithValue(ctx, "pggen_query_name", "AlphaNested")
-	row := q.conn.QueryRow(ctx, alphaNestedSQL)
-	var item string
-	if err := row.Scan(&item); err != nil {
-		return item, fmt.Errorf("query AlphaNested: %w", err)
+	ctx = context.WithValue(ctx, QueryName{}, "AlphaNested")
+	rows, err := q.conn.Query(ctx, alphaNestedSQL)
+	if err != nil {
+		return "", fmt.Errorf("query AlphaNested: %w", err)
 	}
-	return item, nil
+
+	return pgx.CollectExactlyOneRow(rows, pgx.RowTo[string])
 }
 
 const alphaCompositeArraySQL = `SELECT ARRAY[ROW('key')]::alpha[];`
 
 // AlphaCompositeArray implements Querier.AlphaCompositeArray.
 func (q *DBQuerier) AlphaCompositeArray(ctx context.Context) ([]Alpha, error) {
-	ctx = context.WithValue(ctx, "pggen_query_name", "AlphaCompositeArray")
-	row := q.conn.QueryRow(ctx, alphaCompositeArraySQL)
-	item := []Alpha{}
-	arrayArray := q.types.newAlphaArray()
-	if err := row.Scan(arrayArray); err != nil {
-		return item, fmt.Errorf("query AlphaCompositeArray: %w", err)
+	ctx = context.WithValue(ctx, QueryName{}, "AlphaCompositeArray")
+	rows, err := q.conn.Query(ctx, alphaCompositeArraySQL)
+	if err != nil {
+		return nil, fmt.Errorf("query AlphaCompositeArray: %w", err)
 	}
-	if err := arrayArray.AssignTo(&item); err != nil {
-		return item, fmt.Errorf("assign AlphaCompositeArray row: %w", err)
-	}
-	return item, nil
+
+	return pgx.CollectExactlyOneRow(rows, pgx.RowTo[[]Alpha])
 }
-
-// textPreferrer wraps a pgtype.ValueTranscoder and sets the preferred encoding
-// format to text instead binary (the default). pggen uses the text format
-// when the OID is unknownOID because the binary format requires the OID.
-// Typically occurs for unregistered types.
-type textPreferrer struct {
-	pgtype.ValueTranscoder
-	typeName string
-}
-
-// PreferredParamFormat implements pgtype.ParamFormatPreferrer.
-func (t textPreferrer) PreferredParamFormat() int16 { return pgtype.TextFormatCode }
-
-func (t textPreferrer) NewTypeValue() pgtype.Value {
-	return textPreferrer{ValueTranscoder: pgtype.NewValue(t.ValueTranscoder).(pgtype.ValueTranscoder), typeName: t.typeName}
-}
-
-func (t textPreferrer) TypeName() string {
-	return t.typeName
-}
-
-// unknownOID means we don't know the OID for a type. This is okay for decoding
-// because pgx call DecodeText or DecodeBinary without requiring the OID. For
-// encoding parameters, pggen uses textPreferrer if the OID is unknown.
-const unknownOID = 0

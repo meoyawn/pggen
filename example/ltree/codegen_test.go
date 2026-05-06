@@ -25,7 +25,7 @@ func TestGenerate_Go_Example_ltree(t *testing.T) {
 			InlineParamCount: 2,
 			TypeOverrides: map[string]string{
 				"ltree":  "github.com/jackc/pgx/v5/pgtype.Text",
-				"_ltree": "github.com/jackc/pgx/v5/pgtype.TextArray",
+				"_ltree": "[]string",
 			},
 		})
 	if err != nil {

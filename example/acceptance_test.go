@@ -180,7 +180,7 @@ func TestExamples(t *testing.T) {
 				"--schema-glob", "example/ltree/schema.sql",
 				"--query-glob", "example/ltree/query.sql",
 				"--go-type", "ltree=github.com/jackc/pgx/v5/pgtype.Text",
-				"--go-type", "_ltree=github.com/jackc/pgx/v5/pgtype.TextArray",
+				"--go-type", "_ltree=[]string",
 			},
 		},
 		{

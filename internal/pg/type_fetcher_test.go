@@ -195,7 +195,7 @@ func TestNewTypeFetcher(t *testing.T) {
 			// Act.
 			fetcher := NewTypeFetcher(conn)
 			oid := findOIDVal(t, tt.fetchOID, querier)
-			gotTypeMap, err := fetcher.FindTypesByOIDs(uint32(oid))
+			gotTypeMap, err := fetcher.FindTypesByOIDs(oid)
 			if err != nil {
 				t.Fatal(err)
 			}

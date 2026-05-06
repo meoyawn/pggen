@@ -7,8 +7,9 @@ import (
 	"fmt"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
-	"github.com/jackc/pgx/v5/pgtype"
 )
+
+type QueryName struct{}
 
 // Querier is a typesafe Go interface backed by SQL queries.
 type Querier interface {
@@ -26,8 +27,7 @@ type Querier interface {
 var _ Querier = &DBQuerier{}
 
 type DBQuerier struct {
-	conn  genericConn   // underlying Postgres transport to use
-	types *typeResolver // resolve types by name
+	conn genericConn
 }
 
 // genericConn is a connection like *pgx.Conn, pgx.Tx, or *pgxpool.Pool.
@@ -39,313 +39,149 @@ type genericConn interface {
 
 // NewQuerier creates a DBQuerier that implements Querier.
 func NewQuerier(conn genericConn) *DBQuerier {
-	return &DBQuerier{conn: conn, types: newTypeResolver()}
+	return &DBQuerier{conn: conn}
 }
 
 // Dimensions represents the Postgres composite type "dimensions".
 type Dimensions struct {
-	Width  int `json:"width"`
-	Height int `json:"height"`
+	Width  int `json:"width" db:"width"`
+	Height int `json:"height" db:"height"`
 }
 
 // ProductImageSetType represents the Postgres composite type "product_image_set_type".
 type ProductImageSetType struct {
-	Name      string             `json:"name"`
-	OrigImage ProductImageType   `json:"orig_image"`
-	Images    []ProductImageType `json:"images"`
+	Name      string             `json:"name" db:"name"`
+	OrigImage ProductImageType   `json:"orig_image" db:"orig_image"`
+	Images    []ProductImageType `json:"images" db:"images"`
 }
 
 // ProductImageType represents the Postgres composite type "product_image_type".
 type ProductImageType struct {
-	Source     string     `json:"source"`
-	Dimensions Dimensions `json:"dimensions"`
+	Source     string     `json:"source" db:"source"`
+	Dimensions Dimensions `json:"dimensions" db:"dimensions"`
 }
 
-// typeResolver looks up the pgtype.ValueTranscoder by Postgres type name.
-type typeResolver struct {
-	connInfo *pgtype.ConnInfo // types by Postgres type name
-}
-
-func newTypeResolver() *typeResolver {
-	ci := pgtype.NewConnInfo()
-	return &typeResolver{connInfo: ci}
-}
-
-// findValue find the OID, and pgtype.ValueTranscoder for a Postgres type name.
-func (tr *typeResolver) findValue(name string) (uint32, pgtype.ValueTranscoder, bool) {
-	typ, ok := tr.connInfo.DataTypeForName(name)
-	if !ok {
-		return 0, nil, false
-	}
-	v := pgtype.NewValue(typ.Value)
-	return typ.OID, v.(pgtype.ValueTranscoder), true
-}
-
-// setValue sets the value of a ValueTranscoder to a value that should always
-// work and panics if it fails.
-func (tr *typeResolver) setValue(vt pgtype.ValueTranscoder, val interface{}) pgtype.ValueTranscoder {
-	if err := vt.Set(val); err != nil {
-		panic(fmt.Sprintf("set ValueTranscoder %T to %+v: %s", vt, val, err))
-	}
-	return vt
-}
-
-type compositeField struct {
-	name       string                 // name of the field
-	typeName   string                 // Postgres type name
-	defaultVal pgtype.ValueTranscoder // default value to use
-}
-
-func (tr *typeResolver) newCompositeValue(name string, fields ...compositeField) pgtype.ValueTranscoder {
-	if _, val, ok := tr.findValue(name); ok {
-		return val
-	}
-	fs := make([]pgtype.CompositeTypeField, len(fields))
-	vals := make([]pgtype.ValueTranscoder, len(fields))
-	isBinaryOk := true
-	for i, field := range fields {
-		oid, val, ok := tr.findValue(field.typeName)
-		if !ok {
-			oid = unknownOID
-			val = field.defaultVal
+// RegisterTypes loads custom PostgreSQL types into conn's pgx type map.
+func RegisterTypes(ctx context.Context, conn *pgx.Conn) error {
+	pending := append([]string(nil), typesToRegister...)
+	for len(pending) > 0 {
+		remaining := pending[:0]
+		loaded := 0
+		var lastErr error
+		var lastType string
+		for _, typ := range pending {
+			dt, err := conn.LoadType(ctx, typ)
+			if err != nil {
+				lastErr = err
+				lastType = typ
+				remaining = append(remaining, typ)
+				continue
+			}
+			conn.TypeMap().RegisterType(dt)
+			loaded++
 		}
-		isBinaryOk = isBinaryOk && oid != unknownOID
-		fs[i] = pgtype.CompositeTypeField{Name: field.name, OID: oid}
-		vals[i] = val
+		if loaded == 0 {
+			return fmt.Errorf("load PostgreSQL type %q: %w", lastType, lastErr)
+		}
+		pending = remaining
 	}
-	// Okay to ignore error because it's only thrown when the number of field
-	// names does not equal the number of ValueTranscoders.
-	typ, _ := pgtype.NewCompositeTypeValues(name, fs, vals)
-	if !isBinaryOk {
-		return textPreferrer{ValueTranscoder: typ, typeName: name}
-	}
-	return typ
+	return nil
 }
 
-func (tr *typeResolver) newArrayValue(name, elemName string, defaultVal func() pgtype.ValueTranscoder) pgtype.ValueTranscoder {
-	if _, val, ok := tr.findValue(name); ok {
-		return val
-	}
-	elemOID, elemVal, ok := tr.findValue(elemName)
-	elemValFunc := func() pgtype.ValueTranscoder {
-		return pgtype.NewValue(elemVal).(pgtype.ValueTranscoder)
-	}
-	if !ok {
-		elemOID = unknownOID
-		elemValFunc = defaultVal
-	}
-	typ := pgtype.NewArrayType(name, elemOID, elemValFunc)
-	if elemOID == unknownOID {
-		return textPreferrer{ValueTranscoder: typ, typeName: name}
-	}
-	return typ
+var typesToRegister = []string{}
+
+func addTypeToRegister(typ string) struct{} {
+	typesToRegister = append(typesToRegister, typ)
+	return struct{}{}
 }
 
-// newDimensions creates a new pgtype.ValueTranscoder for the Postgres
-// composite type 'dimensions'.
-func (tr *typeResolver) newDimensions() pgtype.ValueTranscoder {
-	return tr.newCompositeValue(
-		"dimensions",
-		compositeField{name: "width", typeName: "int4", defaultVal: &pgtype.Int4{}},
-		compositeField{name: "height", typeName: "int4", defaultVal: &pgtype.Int4{}},
-	)
-}
 
-// newDimensionsInit creates an initialized pgtype.ValueTranscoder for the
-// Postgres composite type 'dimensions' to encode query parameters.
-func (tr *typeResolver) newDimensionsInit(v Dimensions) pgtype.ValueTranscoder {
-	return tr.setValue(tr.newDimensions(), tr.newDimensionsRaw(v))
-}
 
-// newDimensionsRaw returns all composite fields for the Postgres composite
-// type 'dimensions' as a slice of interface{} to encode query parameters.
-func (tr *typeResolver) newDimensionsRaw(v Dimensions) []interface{} {
-	return []interface{}{
-		v.Width,
-		v.Height,
-	}
-}
+var _ = addTypeToRegister("\"dimensions\"")
 
-// newProductImageSetType creates a new pgtype.ValueTranscoder for the Postgres
-// composite type 'product_image_set_type'.
-func (tr *typeResolver) newProductImageSetType() pgtype.ValueTranscoder {
-	return tr.newCompositeValue(
-		"product_image_set_type",
-		compositeField{name: "name", typeName: "text", defaultVal: &pgtype.Text{}},
-		compositeField{name: "orig_image", typeName: "product_image_type", defaultVal: tr.newProductImageType()},
-		compositeField{name: "images", typeName: "_product_image_type", defaultVal: tr.newProductImageTypeArray()},
-	)
-}
 
-// newProductImageSetTypeInit creates an initialized pgtype.ValueTranscoder for the
-// Postgres composite type 'product_image_set_type' to encode query parameters.
-func (tr *typeResolver) newProductImageSetTypeInit(v ProductImageSetType) pgtype.ValueTranscoder {
-	return tr.setValue(tr.newProductImageSetType(), tr.newProductImageSetTypeRaw(v))
-}
 
-// newProductImageSetTypeRaw returns all composite fields for the Postgres composite
-// type 'product_image_set_type' as a slice of interface{} to encode query parameters.
-func (tr *typeResolver) newProductImageSetTypeRaw(v ProductImageSetType) []interface{} {
-	return []interface{}{
-		v.Name,
-		tr.newProductImageTypeRaw(v.OrigImage),
-		tr.newProductImageTypeArrayRaw(v.Images),
-	}
-}
 
-// newProductImageType creates a new pgtype.ValueTranscoder for the Postgres
-// composite type 'product_image_type'.
-func (tr *typeResolver) newProductImageType() pgtype.ValueTranscoder {
-	return tr.newCompositeValue(
-		"product_image_type",
-		compositeField{name: "source", typeName: "text", defaultVal: &pgtype.Text{}},
-		compositeField{name: "dimensions", typeName: "dimensions", defaultVal: tr.newDimensions()},
-	)
-}
 
-// newProductImageTypeInit creates an initialized pgtype.ValueTranscoder for the
-// Postgres composite type 'product_image_type' to encode query parameters.
-func (tr *typeResolver) newProductImageTypeInit(v ProductImageType) pgtype.ValueTranscoder {
-	return tr.setValue(tr.newProductImageType(), tr.newProductImageTypeRaw(v))
-}
+var _ = addTypeToRegister("\"product_image_set_type\"")
 
-// newProductImageTypeRaw returns all composite fields for the Postgres composite
-// type 'product_image_type' as a slice of interface{} to encode query parameters.
-func (tr *typeResolver) newProductImageTypeRaw(v ProductImageType) []interface{} {
-	return []interface{}{
-		v.Source,
-		tr.newDimensionsRaw(v.Dimensions),
-	}
-}
 
-// newProductImageTypeArray creates a new pgtype.ValueTranscoder for the Postgres
-// '_product_image_type' array type.
-func (tr *typeResolver) newProductImageTypeArray() pgtype.ValueTranscoder {
-	return tr.newArrayValue("_product_image_type", "product_image_type", tr.newProductImageType)
-}
 
-// newProductImageTypeArrayInit creates an initialized pgtype.ValueTranscoder for the
-// Postgres array type '_product_image_type' to encode query parameters.
-func (tr *typeResolver) newProductImageTypeArrayInit(ps []ProductImageType) pgtype.ValueTranscoder {
-	dec := tr.newProductImageTypeArray()
-	if err := dec.Set(tr.newProductImageTypeArrayRaw(ps)); err != nil {
-		panic("encode []ProductImageType: " + err.Error()) // should always succeed
-	}
-	return textPreferrer{ValueTranscoder: dec, typeName: "_product_image_type"}
-}
 
-// newProductImageTypeArrayRaw returns all elements for the Postgres array type '_product_image_type'
-// as a slice of interface{} for use with the pgtype.Value Set method.
-func (tr *typeResolver) newProductImageTypeArrayRaw(vs []ProductImageType) []interface{} {
-	elems := make([]interface{}, len(vs))
-	for i, v := range vs {
-		elems[i] = tr.newProductImageTypeRaw(v)
-	}
-	return elems
-}
+
+var _ = addTypeToRegister("\"product_image_type\"")
+
+
+
+
+
+var _ = addTypeToRegister("\"_product_image_type\"")
+
+
+
+
 
 const paramArrayIntSQL = `SELECT $1::bigint[];`
 
 // ParamArrayInt implements Querier.ParamArrayInt.
 func (q *DBQuerier) ParamArrayInt(ctx context.Context, ints []int) ([]int, error) {
-	ctx = context.WithValue(ctx, "pggen_query_name", "ParamArrayInt")
-	row := q.conn.QueryRow(ctx, paramArrayIntSQL, ints)
-	item := []int{}
-	if err := row.Scan(&item); err != nil {
-		return item, fmt.Errorf("query ParamArrayInt: %w", err)
+	ctx = context.WithValue(ctx, QueryName{}, "ParamArrayInt")
+	rows, err := q.conn.Query(ctx, paramArrayIntSQL, ints)
+	if err != nil {
+		return nil, fmt.Errorf("query ParamArrayInt: %w", err)
 	}
-	return item, nil
+
+	return pgx.CollectExactlyOneRow(rows, pgx.RowTo[[]int])
 }
 
 const paramNested1SQL = `SELECT $1::dimensions;`
 
 // ParamNested1 implements Querier.ParamNested1.
 func (q *DBQuerier) ParamNested1(ctx context.Context, dimensions Dimensions) (Dimensions, error) {
-	ctx = context.WithValue(ctx, "pggen_query_name", "ParamNested1")
-	row := q.conn.QueryRow(ctx, paramNested1SQL, q.types.newDimensionsInit(dimensions))
-	var item Dimensions
-	dimensionsRow := q.types.newDimensions()
-	if err := row.Scan(dimensionsRow); err != nil {
-		return item, fmt.Errorf("query ParamNested1: %w", err)
+	ctx = context.WithValue(ctx, QueryName{}, "ParamNested1")
+	rows, err := q.conn.Query(ctx, paramNested1SQL, dimensions)
+	if err != nil {
+		return Dimensions{}, fmt.Errorf("query ParamNested1: %w", err)
 	}
-	if err := dimensionsRow.AssignTo(&item); err != nil {
-		return item, fmt.Errorf("assign ParamNested1 row: %w", err)
-	}
-	return item, nil
+
+	return pgx.CollectExactlyOneRow(rows, pgx.RowTo[Dimensions])
 }
 
 const paramNested2SQL = `SELECT $1::product_image_type;`
 
 // ParamNested2 implements Querier.ParamNested2.
 func (q *DBQuerier) ParamNested2(ctx context.Context, image ProductImageType) (ProductImageType, error) {
-	ctx = context.WithValue(ctx, "pggen_query_name", "ParamNested2")
-	row := q.conn.QueryRow(ctx, paramNested2SQL, q.types.newProductImageTypeInit(image))
-	var item ProductImageType
-	productImageTypeRow := q.types.newProductImageType()
-	if err := row.Scan(productImageTypeRow); err != nil {
-		return item, fmt.Errorf("query ParamNested2: %w", err)
+	ctx = context.WithValue(ctx, QueryName{}, "ParamNested2")
+	rows, err := q.conn.Query(ctx, paramNested2SQL, image)
+	if err != nil {
+		return ProductImageType{}, fmt.Errorf("query ParamNested2: %w", err)
 	}
-	if err := productImageTypeRow.AssignTo(&item); err != nil {
-		return item, fmt.Errorf("assign ParamNested2 row: %w", err)
-	}
-	return item, nil
+
+	return pgx.CollectExactlyOneRow(rows, pgx.RowTo[ProductImageType])
 }
 
 const paramNested2ArraySQL = `SELECT $1::product_image_type[];`
 
 // ParamNested2Array implements Querier.ParamNested2Array.
 func (q *DBQuerier) ParamNested2Array(ctx context.Context, images []ProductImageType) ([]ProductImageType, error) {
-	ctx = context.WithValue(ctx, "pggen_query_name", "ParamNested2Array")
-	row := q.conn.QueryRow(ctx, paramNested2ArraySQL, q.types.newProductImageTypeArrayInit(images))
-	item := []ProductImageType{}
-	productImageTypeArray := q.types.newProductImageTypeArray()
-	if err := row.Scan(productImageTypeArray); err != nil {
-		return item, fmt.Errorf("query ParamNested2Array: %w", err)
+	ctx = context.WithValue(ctx, QueryName{}, "ParamNested2Array")
+	rows, err := q.conn.Query(ctx, paramNested2ArraySQL, images)
+	if err != nil {
+		return nil, fmt.Errorf("query ParamNested2Array: %w", err)
 	}
-	if err := productImageTypeArray.AssignTo(&item); err != nil {
-		return item, fmt.Errorf("assign ParamNested2Array row: %w", err)
-	}
-	return item, nil
+
+	return pgx.CollectExactlyOneRow(rows, pgx.RowTo[[]ProductImageType])
 }
 
 const paramNested3SQL = `SELECT $1::product_image_set_type;`
 
 // ParamNested3 implements Querier.ParamNested3.
 func (q *DBQuerier) ParamNested3(ctx context.Context, imageSet ProductImageSetType) (ProductImageSetType, error) {
-	ctx = context.WithValue(ctx, "pggen_query_name", "ParamNested3")
-	row := q.conn.QueryRow(ctx, paramNested3SQL, q.types.newProductImageSetTypeInit(imageSet))
-	var item ProductImageSetType
-	productImageSetTypeRow := q.types.newProductImageSetType()
-	if err := row.Scan(productImageSetTypeRow); err != nil {
-		return item, fmt.Errorf("query ParamNested3: %w", err)
+	ctx = context.WithValue(ctx, QueryName{}, "ParamNested3")
+	rows, err := q.conn.Query(ctx, paramNested3SQL, imageSet)
+	if err != nil {
+		return ProductImageSetType{}, fmt.Errorf("query ParamNested3: %w", err)
 	}
-	if err := productImageSetTypeRow.AssignTo(&item); err != nil {
-		return item, fmt.Errorf("assign ParamNested3 row: %w", err)
-	}
-	return item, nil
+
+	return pgx.CollectExactlyOneRow(rows, pgx.RowTo[ProductImageSetType])
 }
-
-// textPreferrer wraps a pgtype.ValueTranscoder and sets the preferred encoding
-// format to text instead binary (the default). pggen uses the text format
-// when the OID is unknownOID because the binary format requires the OID.
-// Typically occurs for unregistered types.
-type textPreferrer struct {
-	pgtype.ValueTranscoder
-	typeName string
-}
-
-// PreferredParamFormat implements pgtype.ParamFormatPreferrer.
-func (t textPreferrer) PreferredParamFormat() int16 { return pgtype.TextFormatCode }
-
-func (t textPreferrer) NewTypeValue() pgtype.Value {
-	return textPreferrer{ValueTranscoder: pgtype.NewValue(t.ValueTranscoder).(pgtype.ValueTranscoder), typeName: t.typeName}
-}
-
-func (t textPreferrer) TypeName() string {
-	return t.typeName
-}
-
-// unknownOID means we don't know the OID for a type. This is okay for decoding
-// because pgx call DecodeText or DecodeBinary without requiring the OID. For
-// encoding parameters, pggen uses textPreferrer if the OID is unknown.
-const unknownOID = 0

@@ -157,7 +157,7 @@ func (inf *Inferrer) prepareTypes(query *ast.SourceQuery) (_a []InputParam, _ []
 			return nil, nil, fmt.Errorf("fetch oid types: %w", err)
 		}
 		for i, oid := range stmtDesc.ParamOIDs {
-			inputType, ok := types[uint32(oid)]
+			inputType, ok := types[oid]
 			if !ok {
 				return nil, nil, fmt.Errorf("no postgres type name found for parameter %s with oid %d", query.ParamNames[i], oid)
 			}
@@ -187,12 +187,12 @@ func (inf *Inferrer) prepareTypes(query *ast.SourceQuery) (_a []InputParam, _ []
 	// Create output columns
 	var outputColumns []OutputColumn
 	for i, desc := range stmtDesc.Fields {
-		pgType, ok := outputTypes[uint32(desc.DataTypeOID)]
+		pgType, ok := outputTypes[desc.DataTypeOID]
 		if !ok {
-			return nil, nil, fmt.Errorf("no postgrestype name found for column %s with oid %d", string(desc.Name), desc.DataTypeOID)
+			return nil, nil, fmt.Errorf("no postgrestype name found for column %s with oid %d", desc.Name, desc.DataTypeOID)
 		}
 		outputColumns = append(outputColumns, OutputColumn{
-			PgName:   string(desc.Name),
+			PgName:   desc.Name,
 			PgType:   pgType,
 			Nullable: nullables[i],
 		})
@@ -215,7 +215,7 @@ func (inf *Inferrer) inferOutputNullability(query *ast.SourceQuery, descs []pgco
 	for i, desc := range descs {
 		if desc.TableOID > 0 {
 			columnKeys[i] = pg.ColumnKey{
-				TableOID: uint32(desc.TableOID),
+				TableOID: desc.TableOID,
 				Number:   desc.TableAttributeNumber,
 			}
 		}

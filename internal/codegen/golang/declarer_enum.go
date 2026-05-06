@@ -80,43 +80,13 @@ func NewEnumTranscoderDeclarer(enum *gotype.EnumType) EnumTranscoderDeclarer {
 }
 
 func (e EnumTranscoderDeclarer) DedupeKey() string {
-	return "enum_decoder::" + e.typ.Name
+	return "type_resolver::" + e.typ.Name + "_01_transcoder"
 }
 
 func (e EnumTranscoderDeclarer) Declare(string) (string, error) {
 	sb := &strings.Builder{}
-	funcName := NameEnumTranscoderFunc(e.typ)
-
-	// Doc comment
-	sb.WriteString("// ")
-	sb.WriteString(funcName)
-	sb.WriteString(" creates a new pgtype.ValueTranscoder for the\n")
-	sb.WriteString("// Postgres enum type '")
-	sb.WriteString(e.typ.PgEnum.Name)
-	sb.WriteString("'.\n")
-
-	// Function signature
-	sb.WriteString("func ")
-	sb.WriteString(funcName)
-	sb.WriteString("() pgtype.ValueTranscoder {\n\t")
-
-	// NewEnumType call
-	sb.WriteString("return pgtype.NewEnumType(\n\t\t")
-	sb.WriteString(strconv.Quote(e.typ.PgEnum.Name))
-	sb.WriteString(",\n\t\t")
-	sb.WriteString(`[]string{`)
-	for _, label := range e.typ.Labels {
-		sb.WriteString("\n\t\t\t")
-		sb.WriteString("string(")
-		sb.WriteString(label)
-		sb.WriteString("),")
-	}
-	sb.WriteString("\n\t\t")
-	sb.WriteString("},")
-	sb.WriteString("\n\t")
+	sb.WriteString("var _ = addTypeToRegister(")
+	sb.WriteString(strconv.Quote(pgTypeNameForLoadType(e.typ.PgEnum.Name)))
 	sb.WriteString(")")
-	sb.WriteString("\n")
-	sb.WriteString("}")
-
 	return sb.String(), nil
 }

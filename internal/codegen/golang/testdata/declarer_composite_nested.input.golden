@@ -1,132 +1,55 @@
 // FooType represents the Postgres composite type "foo_type".
 type FooType struct {
-	Alpha pgtype.Text `json:"alpha"`
+	Alpha pgtype.Text `json:"alpha" db:"alpha"`
 }
 
 // SomeTableNested represents the Postgres composite type "some_table_nested".
 type SomeTableNested struct {
-	Foo    FooType     `json:"foo"`
-	BarBaz pgtype.Text `json:"bar_baz"`
+	Foo    FooType     `json:"foo" db:"foo"`
+	BarBaz pgtype.Text `json:"bar_baz" db:"bar_baz"`
 }
 
-// typeResolver looks up the pgtype.ValueTranscoder by Postgres type name.
-type typeResolver struct {
-	connInfo *pgtype.ConnInfo // types by Postgres type name
-}
-
-func newTypeResolver() *typeResolver {
-	ci := pgtype.NewConnInfo()
-	return &typeResolver{connInfo: ci}
-}
-
-// findValue find the OID, and pgtype.ValueTranscoder for a Postgres type name.
-func (tr *typeResolver) findValue(name string) (uint32, pgtype.ValueTranscoder, bool) {
-	typ, ok := tr.connInfo.DataTypeForName(name)
-	if !ok {
-		return 0, nil, false
-	}
-	v := pgtype.NewValue(typ.Value)
-	return typ.OID, v.(pgtype.ValueTranscoder), true
-}
-
-// setValue sets the value of a ValueTranscoder to a value that should always
-// work and panics if it fails.
-func (tr *typeResolver) setValue(vt pgtype.ValueTranscoder, val interface{}) pgtype.ValueTranscoder {
-	if err := vt.Set(val); err != nil {
-		panic(fmt.Sprintf("set ValueTranscoder %T to %+v: %s", vt, val, err))
-	}
-	return vt
-}
-
-type compositeField struct {
-	name       string                 // name of the field
-	typeName   string                 // Postgres type name
-	defaultVal pgtype.ValueTranscoder // default value to use
-}
-
-func (tr *typeResolver) newCompositeValue(name string, fields ...compositeField) pgtype.ValueTranscoder {
-	if _, val, ok := tr.findValue(name); ok {
-		return val
-	}
-	fs := make([]pgtype.CompositeTypeField, len(fields))
-	vals := make([]pgtype.ValueTranscoder, len(fields))
-	isBinaryOk := true
-	for i, field := range fields {
-		oid, val, ok := tr.findValue(field.typeName)
-		if !ok {
-			oid = unknownOID
-			val = field.defaultVal
+// RegisterTypes loads custom PostgreSQL types into conn's pgx type map.
+func RegisterTypes(ctx context.Context, conn *pgx.Conn) error {
+	pending := append([]string(nil), typesToRegister...)
+	for len(pending) > 0 {
+		remaining := pending[:0]
+		loaded := 0
+		var lastErr error
+		var lastType string
+		for _, typ := range pending {
+			dt, err := conn.LoadType(ctx, typ)
+			if err != nil {
+				lastErr = err
+				lastType = typ
+				remaining = append(remaining, typ)
+				continue
+			}
+			conn.TypeMap().RegisterType(dt)
+			loaded++
 		}
-		isBinaryOk = isBinaryOk && oid != unknownOID
-		fs[i] = pgtype.CompositeTypeField{Name: field.name, OID: oid}
-		vals[i] = val
+		if loaded == 0 {
+			return fmt.Errorf("load PostgreSQL type %q: %w", lastType, lastErr)
+		}
+		pending = remaining
 	}
-	// Okay to ignore error because it's only thrown when the number of field
-	// names does not equal the number of ValueTranscoders.
-	typ, _ := pgtype.NewCompositeTypeValues(name, fs, vals)
-	if !isBinaryOk {
-		return textPreferrer{ValueTranscoder: typ, typeName: name}
-	}
-	return typ
+	return nil
 }
 
-func (tr *typeResolver) newArrayValue(name, elemName string, defaultVal func() pgtype.ValueTranscoder) pgtype.ValueTranscoder {
-	if _, val, ok := tr.findValue(name); ok {
-		return val
-	}
-	elemOID, elemVal, ok := tr.findValue(elemName)
-	elemValFunc := func() pgtype.ValueTranscoder {
-		return pgtype.NewValue(elemVal).(pgtype.ValueTranscoder)
-	}
-	if !ok {
-		elemOID = unknownOID
-		elemValFunc = defaultVal
-	}
-	typ := pgtype.NewArrayType(name, elemOID, elemValFunc)
-	if elemOID == unknownOID {
-		return textPreferrer{ValueTranscoder: typ, typeName: name}
-	}
-	return typ
+var typesToRegister = []string{}
+
+func addTypeToRegister(typ string) struct{} {
+	typesToRegister = append(typesToRegister, typ)
+	return struct{}{}
 }
 
-// newFooType creates a new pgtype.ValueTranscoder for the Postgres
-// composite type 'foo_type'.
-func (tr *typeResolver) newFooType() pgtype.ValueTranscoder {
-	return tr.newCompositeValue(
-		"foo_type",
-		compositeField{name: "alpha", typeName: "text", defaultVal: &pgtype.Text{}},
-	)
-}
 
-// newFooTypeRaw returns all composite fields for the Postgres composite
-// type 'foo_type' as a slice of interface{} to encode query parameters.
-func (tr *typeResolver) newFooTypeRaw(v FooType) []interface{} {
-	return []interface{}{
-		v.Alpha,
-	}
-}
 
-// newSomeTableNested creates a new pgtype.ValueTranscoder for the Postgres
-// composite type 'some_table_nested'.
-func (tr *typeResolver) newSomeTableNested() pgtype.ValueTranscoder {
-	return tr.newCompositeValue(
-		"some_table_nested",
-		compositeField{name: "foo", typeName: "foo_type", defaultVal: tr.newFooType()},
-		compositeField{name: "bar_baz", typeName: "text", defaultVal: &pgtype.Text{}},
-	)
-}
+var _ = addTypeToRegister("\"foo_type\"")
 
-// newSomeTableNestedInit creates an initialized pgtype.ValueTranscoder for the
-// Postgres composite type 'some_table_nested' to encode query parameters.
-func (tr *typeResolver) newSomeTableNestedInit(v SomeTableNested) pgtype.ValueTranscoder {
-	return tr.setValue(tr.newSomeTableNested(), tr.newSomeTableNestedRaw(v))
-}
 
-// newSomeTableNestedRaw returns all composite fields for the Postgres composite
-// type 'some_table_nested' as a slice of interface{} to encode query parameters.
-func (tr *typeResolver) newSomeTableNestedRaw(v SomeTableNested) []interface{} {
-	return []interface{}{
-		tr.newFooTypeRaw(v.Foo),
-		v.BarBaz,
-	}
-}
+
+var _ = addTypeToRegister("\"some_table_nested\"")
+
+
+

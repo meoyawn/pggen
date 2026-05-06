@@ -38,15 +38,15 @@ func TestQuerier_CustomMyInt(t *testing.T) {
 			AND pn.nspname = current_schema()
 		LIMIT 1;
 	`))
-	oidVal := uint32Value{}
-	err := row.Scan(&oidVal)
+	var oid uint32
+	err := row.Scan(&oid)
 	require.NoError(t, err)
-	t.Logf("my_int oid: %d", oidVal.Uint)
+	t.Logf("my_int oid: %d", oid)
 
-	conn.ConnInfo().RegisterDataType(pgtype.DataType{
-		Value: &pgtype.Int2{},
+	conn.TypeMap().RegisterType(&pgtype.Type{
 		Name:  "my_int",
-		OID:   oidVal.Uint,
+		OID:   oid,
+		Codec: pgtype.Int2Codec{},
 	})
 
 	q := NewQuerier(conn)

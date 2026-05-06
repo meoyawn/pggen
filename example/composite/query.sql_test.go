@@ -87,7 +87,7 @@ func TestNewQuerier_UserEmails(t *testing.T) {
 	require.NoError(t, err)
 	want := UserEmail{
 		ID:    "foo",
-		Email: pgtype.Text{String: "bar@example.com", Status: pgtype.Present},
+		Email: pgtype.Text{String: "bar@example.com", Valid: true},
 	}
 	difftest.AssertSame(t, want, got)
 }

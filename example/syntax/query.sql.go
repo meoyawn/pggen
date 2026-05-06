@@ -7,8 +7,9 @@ import (
 	"fmt"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
-	"github.com/jackc/pgx/v5/pgtype"
 )
+
+type QueryName struct{}
 
 // Querier is a typesafe Go interface backed by SQL queries.
 type Querier interface {
@@ -42,8 +43,7 @@ type Querier interface {
 var _ Querier = &DBQuerier{}
 
 type DBQuerier struct {
-	conn  genericConn   // underlying Postgres transport to use
-	types *typeResolver // resolve types by name
+	conn genericConn
 }
 
 // genericConn is a connection like *pgx.Conn, pgx.Tx, or *pgxpool.Pool.
@@ -55,7 +55,7 @@ type genericConn interface {
 
 // NewQuerier creates a DBQuerier that implements Querier.
 func NewQuerier(conn genericConn) *DBQuerier {
-	return &DBQuerier{conn: conn, types: newTypeResolver()}
+	return &DBQuerier{conn: conn}
 }
 
 // UnnamedEnum123 represents the Postgres enum "123".
@@ -70,178 +70,160 @@ const (
 
 func (u UnnamedEnum123) String() string { return string(u) }
 
-// typeResolver looks up the pgtype.ValueTranscoder by Postgres type name.
-type typeResolver struct {
-	connInfo *pgtype.ConnInfo // types by Postgres type name
-}
-
-func newTypeResolver() *typeResolver {
-	ci := pgtype.NewConnInfo()
-	return &typeResolver{connInfo: ci}
-}
-
-// findValue find the OID, and pgtype.ValueTranscoder for a Postgres type name.
-func (tr *typeResolver) findValue(name string) (uint32, pgtype.ValueTranscoder, bool) {
-	typ, ok := tr.connInfo.DataTypeForName(name)
-	if !ok {
-		return 0, nil, false
+// RegisterTypes loads custom PostgreSQL types into conn's pgx type map.
+func RegisterTypes(ctx context.Context, conn *pgx.Conn) error {
+	pending := append([]string(nil), typesToRegister...)
+	for len(pending) > 0 {
+		remaining := pending[:0]
+		loaded := 0
+		var lastErr error
+		var lastType string
+		for _, typ := range pending {
+			dt, err := conn.LoadType(ctx, typ)
+			if err != nil {
+				lastErr = err
+				lastType = typ
+				remaining = append(remaining, typ)
+				continue
+			}
+			conn.TypeMap().RegisterType(dt)
+			loaded++
+		}
+		if loaded == 0 {
+			return fmt.Errorf("load PostgreSQL type %q: %w", lastType, lastErr)
+		}
+		pending = remaining
 	}
-	v := pgtype.NewValue(typ.Value)
-	return typ.OID, v.(pgtype.ValueTranscoder), true
+	return nil
 }
 
-// setValue sets the value of a ValueTranscoder to a value that should always
-// work and panics if it fails.
-func (tr *typeResolver) setValue(vt pgtype.ValueTranscoder, val interface{}) pgtype.ValueTranscoder {
-	if err := vt.Set(val); err != nil {
-		panic(fmt.Sprintf("set ValueTranscoder %T to %+v: %s", vt, val, err))
-	}
-	return vt
+var typesToRegister = []string{}
+
+func addTypeToRegister(typ string) struct{} {
+	typesToRegister = append(typesToRegister, typ)
+	return struct{}{}
 }
+
+var _ = addTypeToRegister("\"123\"")
 
 const backtickSQL = "SELECT '`';"
 
 // Backtick implements Querier.Backtick.
 func (q *DBQuerier) Backtick(ctx context.Context) (string, error) {
-	ctx = context.WithValue(ctx, "pggen_query_name", "Backtick")
-	row := q.conn.QueryRow(ctx, backtickSQL)
-	var item string
-	if err := row.Scan(&item); err != nil {
-		return item, fmt.Errorf("query Backtick: %w", err)
+	ctx = context.WithValue(ctx, QueryName{}, "Backtick")
+	rows, err := q.conn.Query(ctx, backtickSQL)
+	if err != nil {
+		return "", fmt.Errorf("query Backtick: %w", err)
 	}
-	return item, nil
+
+	return pgx.CollectExactlyOneRow(rows, pgx.RowTo[string])
 }
 
 const backtickQuoteBacktickSQL = "SELECT '`\"`';"
 
 // BacktickQuoteBacktick implements Querier.BacktickQuoteBacktick.
 func (q *DBQuerier) BacktickQuoteBacktick(ctx context.Context) (string, error) {
-	ctx = context.WithValue(ctx, "pggen_query_name", "BacktickQuoteBacktick")
-	row := q.conn.QueryRow(ctx, backtickQuoteBacktickSQL)
-	var item string
-	if err := row.Scan(&item); err != nil {
-		return item, fmt.Errorf("query BacktickQuoteBacktick: %w", err)
+	ctx = context.WithValue(ctx, QueryName{}, "BacktickQuoteBacktick")
+	rows, err := q.conn.Query(ctx, backtickQuoteBacktickSQL)
+	if err != nil {
+		return "", fmt.Errorf("query BacktickQuoteBacktick: %w", err)
 	}
-	return item, nil
+
+	return pgx.CollectExactlyOneRow(rows, pgx.RowTo[string])
 }
 
 const backtickNewlineSQL = "SELECT '`\n';"
 
 // BacktickNewline implements Querier.BacktickNewline.
 func (q *DBQuerier) BacktickNewline(ctx context.Context) (string, error) {
-	ctx = context.WithValue(ctx, "pggen_query_name", "BacktickNewline")
-	row := q.conn.QueryRow(ctx, backtickNewlineSQL)
-	var item string
-	if err := row.Scan(&item); err != nil {
-		return item, fmt.Errorf("query BacktickNewline: %w", err)
+	ctx = context.WithValue(ctx, QueryName{}, "BacktickNewline")
+	rows, err := q.conn.Query(ctx, backtickNewlineSQL)
+	if err != nil {
+		return "", fmt.Errorf("query BacktickNewline: %w", err)
 	}
-	return item, nil
+
+	return pgx.CollectExactlyOneRow(rows, pgx.RowTo[string])
 }
 
 const backtickDoubleQuoteSQL = "SELECT '`\"';"
 
 // BacktickDoubleQuote implements Querier.BacktickDoubleQuote.
 func (q *DBQuerier) BacktickDoubleQuote(ctx context.Context) (string, error) {
-	ctx = context.WithValue(ctx, "pggen_query_name", "BacktickDoubleQuote")
-	row := q.conn.QueryRow(ctx, backtickDoubleQuoteSQL)
-	var item string
-	if err := row.Scan(&item); err != nil {
-		return item, fmt.Errorf("query BacktickDoubleQuote: %w", err)
+	ctx = context.WithValue(ctx, QueryName{}, "BacktickDoubleQuote")
+	rows, err := q.conn.Query(ctx, backtickDoubleQuoteSQL)
+	if err != nil {
+		return "", fmt.Errorf("query BacktickDoubleQuote: %w", err)
 	}
-	return item, nil
+
+	return pgx.CollectExactlyOneRow(rows, pgx.RowTo[string])
 }
 
 const backtickBackslashNSQL = "SELECT '`\\n';"
 
 // BacktickBackslashN implements Querier.BacktickBackslashN.
 func (q *DBQuerier) BacktickBackslashN(ctx context.Context) (string, error) {
-	ctx = context.WithValue(ctx, "pggen_query_name", "BacktickBackslashN")
-	row := q.conn.QueryRow(ctx, backtickBackslashNSQL)
-	var item string
-	if err := row.Scan(&item); err != nil {
-		return item, fmt.Errorf("query BacktickBackslashN: %w", err)
+	ctx = context.WithValue(ctx, QueryName{}, "BacktickBackslashN")
+	rows, err := q.conn.Query(ctx, backtickBackslashNSQL)
+	if err != nil {
+		return "", fmt.Errorf("query BacktickBackslashN: %w", err)
 	}
-	return item, nil
+
+	return pgx.CollectExactlyOneRow(rows, pgx.RowTo[string])
 }
 
 const illegalNameSymbolsSQL = "SELECT '`\\n' as \"$\", $1 as \"foo.bar!@#$%&*()\"\"--+\";"
 
 type IllegalNameSymbolsRow struct {
-	UnnamedColumn0 string `json:"$"`
-	FooBar         string `json:"foo.bar!@#$%&*()\"--+"`
+	UnnamedColumn0 string `json:"$" db:"$"`
+	FooBar         string `json:"foo.bar!@#$%&*()\"--+" db:"foo.bar!@#$%&*()\"--+"`
 }
 
 // IllegalNameSymbols implements Querier.IllegalNameSymbols.
 func (q *DBQuerier) IllegalNameSymbols(ctx context.Context, helloWorld string) (IllegalNameSymbolsRow, error) {
-	ctx = context.WithValue(ctx, "pggen_query_name", "IllegalNameSymbols")
-	row := q.conn.QueryRow(ctx, illegalNameSymbolsSQL, helloWorld)
-	var item IllegalNameSymbolsRow
-	if err := row.Scan(&item.UnnamedColumn0, &item.FooBar); err != nil {
-		return item, fmt.Errorf("query IllegalNameSymbols: %w", err)
+	ctx = context.WithValue(ctx, QueryName{}, "IllegalNameSymbols")
+	rows, err := q.conn.Query(ctx, illegalNameSymbolsSQL, helloWorld)
+	if err != nil {
+		return IllegalNameSymbolsRow{}, fmt.Errorf("query IllegalNameSymbols: %w", err)
 	}
-	return item, nil
+
+	return pgx.CollectExactlyOneRow(rows, pgx.RowToStructByName[IllegalNameSymbolsRow])
 }
 
 const spaceAfterSQL = `SELECT $1;`
 
 // SpaceAfter implements Querier.SpaceAfter.
 func (q *DBQuerier) SpaceAfter(ctx context.Context, space string) (string, error) {
-	ctx = context.WithValue(ctx, "pggen_query_name", "SpaceAfter")
-	row := q.conn.QueryRow(ctx, spaceAfterSQL, space)
-	var item string
-	if err := row.Scan(&item); err != nil {
-		return item, fmt.Errorf("query SpaceAfter: %w", err)
+	ctx = context.WithValue(ctx, QueryName{}, "SpaceAfter")
+	rows, err := q.conn.Query(ctx, spaceAfterSQL, space)
+	if err != nil {
+		return "", fmt.Errorf("query SpaceAfter: %w", err)
 	}
-	return item, nil
+
+	return pgx.CollectExactlyOneRow(rows, pgx.RowTo[string])
 }
 
 const badEnumNameSQL = `SELECT 'inconvertible_enum_name'::"123";`
 
 // BadEnumName implements Querier.BadEnumName.
 func (q *DBQuerier) BadEnumName(ctx context.Context) (UnnamedEnum123, error) {
-	ctx = context.WithValue(ctx, "pggen_query_name", "BadEnumName")
-	row := q.conn.QueryRow(ctx, badEnumNameSQL)
-	var item UnnamedEnum123
-	if err := row.Scan(&item); err != nil {
-		return item, fmt.Errorf("query BadEnumName: %w", err)
+	ctx = context.WithValue(ctx, QueryName{}, "BadEnumName")
+	rows, err := q.conn.Query(ctx, badEnumNameSQL)
+	if err != nil {
+		return "", fmt.Errorf("query BadEnumName: %w", err)
 	}
-	return item, nil
+
+	return pgx.CollectExactlyOneRow(rows, pgx.RowTo[UnnamedEnum123])
 }
 
 const goKeywordSQL = `SELECT $1::text;`
 
 // GoKeyword implements Querier.GoKeyword.
 func (q *DBQuerier) GoKeyword(ctx context.Context, go_ string) (string, error) {
-	ctx = context.WithValue(ctx, "pggen_query_name", "GoKeyword")
-	row := q.conn.QueryRow(ctx, goKeywordSQL, go_)
-	var item string
-	if err := row.Scan(&item); err != nil {
-		return item, fmt.Errorf("query GoKeyword: %w", err)
+	ctx = context.WithValue(ctx, QueryName{}, "GoKeyword")
+	rows, err := q.conn.Query(ctx, goKeywordSQL, go_)
+	if err != nil {
+		return "", fmt.Errorf("query GoKeyword: %w", err)
 	}
-	return item, nil
+
+	return pgx.CollectExactlyOneRow(rows, pgx.RowTo[string])
 }
-
-// textPreferrer wraps a pgtype.ValueTranscoder and sets the preferred encoding
-// format to text instead binary (the default). pggen uses the text format
-// when the OID is unknownOID because the binary format requires the OID.
-// Typically occurs for unregistered types.
-type textPreferrer struct {
-	pgtype.ValueTranscoder
-	typeName string
-}
-
-// PreferredParamFormat implements pgtype.ParamFormatPreferrer.
-func (t textPreferrer) PreferredParamFormat() int16 { return pgtype.TextFormatCode }
-
-func (t textPreferrer) NewTypeValue() pgtype.Value {
-	return textPreferrer{ValueTranscoder: pgtype.NewValue(t.ValueTranscoder).(pgtype.ValueTranscoder), typeName: t.typeName}
-}
-
-func (t textPreferrer) TypeName() string {
-	return t.typeName
-}
-
-// unknownOID means we don't know the OID for a type. This is okay for decoding
-// because pgx call DecodeText or DecodeBinary without requiring the OID. For
-// encoding parameters, pggen uses textPreferrer if the OID is unknown.
-const unknownOID = 0
