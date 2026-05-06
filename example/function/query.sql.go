@@ -102,5 +102,10 @@ func (q *DBQuerier) OutParams(ctx context.Context) ([]OutParamsRow, error) {
 		return zero, fmt.Errorf("query OutParams: %w", err)
 	}
 
-	return pgx.CollectRows(rows, pgx.RowToStructByName[OutParamsRow])
+	result, err := pgx.CollectRows(rows, pgx.RowToStructByName[OutParamsRow])
+	if err != nil {
+		var zero []OutParamsRow
+		return zero, fmt.Errorf("scan OutParams row: %w", err)
+	}
+	return result, nil
 }

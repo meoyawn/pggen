@@ -100,7 +100,12 @@ func (q *DBQuerier) CreateTenant(ctx context.Context, key string, name string) (
 		return zero, fmt.Errorf("query CreateTenant: %w", err)
 	}
 
-	return pgx.CollectOneRow(rows, pgx.RowToStructByName[CreateTenantRow])
+	result, err := pgx.CollectOneRow(rows, pgx.RowToStructByName[CreateTenantRow])
+	if err != nil {
+		var zero CreateTenantRow
+		return zero, fmt.Errorf("query CreateTenant: %w", err)
+	}
+	return result, nil
 }
 
 const findOrdersByCustomerSQL = `SELECT *
@@ -123,7 +128,12 @@ func (q *DBQuerier) FindOrdersByCustomer(ctx context.Context, customerID int32) 
 		return zero, fmt.Errorf("query FindOrdersByCustomer: %w", err)
 	}
 
-	return pgx.CollectRows(rows, pgx.RowToStructByName[FindOrdersByCustomerRow])
+	result, err := pgx.CollectRows(rows, pgx.RowToStructByName[FindOrdersByCustomerRow])
+	if err != nil {
+		var zero []FindOrdersByCustomerRow
+		return zero, fmt.Errorf("scan FindOrdersByCustomer row: %w", err)
+	}
+	return result, nil
 }
 
 const findProductsInOrderSQL = `SELECT o.order_id, p.product_id, p.name
@@ -147,7 +157,12 @@ func (q *DBQuerier) FindProductsInOrder(ctx context.Context, orderID int32) ([]F
 		return zero, fmt.Errorf("query FindProductsInOrder: %w", err)
 	}
 
-	return pgx.CollectRows(rows, pgx.RowToStructByName[FindProductsInOrderRow])
+	result, err := pgx.CollectRows(rows, pgx.RowToStructByName[FindProductsInOrderRow])
+	if err != nil {
+		var zero []FindProductsInOrderRow
+		return zero, fmt.Errorf("scan FindProductsInOrder row: %w", err)
+	}
+	return result, nil
 }
 
 const insertCustomerSQL = `INSERT INTO customer (first_name, last_name, email)
@@ -176,7 +191,12 @@ func (q *DBQuerier) InsertCustomer(ctx context.Context, params InsertCustomerPar
 		return zero, fmt.Errorf("query InsertCustomer: %w", err)
 	}
 
-	return pgx.CollectOneRow(rows, pgx.RowToStructByName[InsertCustomerRow])
+	result, err := pgx.CollectOneRow(rows, pgx.RowToStructByName[InsertCustomerRow])
+	if err != nil {
+		var zero InsertCustomerRow
+		return zero, fmt.Errorf("query InsertCustomer: %w", err)
+	}
+	return result, nil
 }
 
 const insertOrderSQL = `INSERT INTO orders (order_date, order_total, customer_id)
@@ -205,5 +225,10 @@ func (q *DBQuerier) InsertOrder(ctx context.Context, params InsertOrderParams) (
 		return zero, fmt.Errorf("query InsertOrder: %w", err)
 	}
 
-	return pgx.CollectOneRow(rows, pgx.RowToStructByName[InsertOrderRow])
+	result, err := pgx.CollectOneRow(rows, pgx.RowToStructByName[InsertOrderRow])
+	if err != nil {
+		var zero InsertOrderRow
+		return zero, fmt.Errorf("query InsertOrder: %w", err)
+	}
+	return result, nil
 }

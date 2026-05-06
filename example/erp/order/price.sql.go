@@ -27,7 +27,12 @@ func (q *DBQuerier) FindOrdersByPrice(ctx context.Context, minTotal pgtype.Numer
 		return zero, fmt.Errorf("query FindOrdersByPrice: %w", err)
 	}
 
-	return pgx.CollectRows(rows, pgx.RowToStructByName[FindOrdersByPriceRow])
+	result, err := pgx.CollectRows(rows, pgx.RowToStructByName[FindOrdersByPriceRow])
+	if err != nil {
+		var zero []FindOrdersByPriceRow
+		return zero, fmt.Errorf("scan FindOrdersByPrice row: %w", err)
+	}
+	return result, nil
 }
 
 const findOrdersMRRSQL = `SELECT date_trunc('month', order_date) AS month, sum(order_total) AS order_mrr
@@ -48,5 +53,10 @@ func (q *DBQuerier) FindOrdersMRR(ctx context.Context) ([]FindOrdersMRRRow, erro
 		return zero, fmt.Errorf("query FindOrdersMRR: %w", err)
 	}
 
-	return pgx.CollectRows(rows, pgx.RowToStructByName[FindOrdersMRRRow])
+	result, err := pgx.CollectRows(rows, pgx.RowToStructByName[FindOrdersMRRRow])
+	if err != nil {
+		var zero []FindOrdersMRRRow
+		return zero, fmt.Errorf("scan FindOrdersMRR row: %w", err)
+	}
+	return result, nil
 }

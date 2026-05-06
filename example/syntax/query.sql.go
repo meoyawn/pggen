@@ -117,7 +117,12 @@ func (q *DBQuerier) Backtick(ctx context.Context) (string, error) {
 		return zero, fmt.Errorf("query Backtick: %w", err)
 	}
 
-	return pgx.CollectOneRow(rows, pgx.RowTo[string])
+	result, err := pgx.CollectOneRow(rows, pgx.RowTo[string])
+	if err != nil {
+		var zero string
+		return zero, fmt.Errorf("query Backtick: %w", err)
+	}
+	return result, nil
 }
 
 const backtickQuoteBacktickSQL = "SELECT '`\"`';"
@@ -131,7 +136,12 @@ func (q *DBQuerier) BacktickQuoteBacktick(ctx context.Context) (string, error) {
 		return zero, fmt.Errorf("query BacktickQuoteBacktick: %w", err)
 	}
 
-	return pgx.CollectOneRow(rows, pgx.RowTo[string])
+	result, err := pgx.CollectOneRow(rows, pgx.RowTo[string])
+	if err != nil {
+		var zero string
+		return zero, fmt.Errorf("query BacktickQuoteBacktick: %w", err)
+	}
+	return result, nil
 }
 
 const backtickNewlineSQL = "SELECT '`\n';"
@@ -145,7 +155,12 @@ func (q *DBQuerier) BacktickNewline(ctx context.Context) (string, error) {
 		return zero, fmt.Errorf("query BacktickNewline: %w", err)
 	}
 
-	return pgx.CollectOneRow(rows, pgx.RowTo[string])
+	result, err := pgx.CollectOneRow(rows, pgx.RowTo[string])
+	if err != nil {
+		var zero string
+		return zero, fmt.Errorf("query BacktickNewline: %w", err)
+	}
+	return result, nil
 }
 
 const backtickDoubleQuoteSQL = "SELECT '`\"';"
@@ -159,7 +174,12 @@ func (q *DBQuerier) BacktickDoubleQuote(ctx context.Context) (string, error) {
 		return zero, fmt.Errorf("query BacktickDoubleQuote: %w", err)
 	}
 
-	return pgx.CollectOneRow(rows, pgx.RowTo[string])
+	result, err := pgx.CollectOneRow(rows, pgx.RowTo[string])
+	if err != nil {
+		var zero string
+		return zero, fmt.Errorf("query BacktickDoubleQuote: %w", err)
+	}
+	return result, nil
 }
 
 const backtickBackslashNSQL = "SELECT '`\\n';"
@@ -173,7 +193,12 @@ func (q *DBQuerier) BacktickBackslashN(ctx context.Context) (string, error) {
 		return zero, fmt.Errorf("query BacktickBackslashN: %w", err)
 	}
 
-	return pgx.CollectOneRow(rows, pgx.RowTo[string])
+	result, err := pgx.CollectOneRow(rows, pgx.RowTo[string])
+	if err != nil {
+		var zero string
+		return zero, fmt.Errorf("query BacktickBackslashN: %w", err)
+	}
+	return result, nil
 }
 
 const illegalNameSymbolsSQL = "SELECT '`\\n' as \"$\", $1 as \"foo.bar!@#$%&*()\"\"--+\";"
@@ -192,7 +217,12 @@ func (q *DBQuerier) IllegalNameSymbols(ctx context.Context, helloWorld string) (
 		return zero, fmt.Errorf("query IllegalNameSymbols: %w", err)
 	}
 
-	return pgx.CollectOneRow(rows, pgx.RowToStructByName[IllegalNameSymbolsRow])
+	result, err := pgx.CollectOneRow(rows, pgx.RowToStructByName[IllegalNameSymbolsRow])
+	if err != nil {
+		var zero IllegalNameSymbolsRow
+		return zero, fmt.Errorf("query IllegalNameSymbols: %w", err)
+	}
+	return result, nil
 }
 
 const spaceAfterSQL = `SELECT $1;`
@@ -206,7 +236,12 @@ func (q *DBQuerier) SpaceAfter(ctx context.Context, space string) (string, error
 		return zero, fmt.Errorf("query SpaceAfter: %w", err)
 	}
 
-	return pgx.CollectOneRow(rows, pgx.RowTo[string])
+	result, err := pgx.CollectOneRow(rows, pgx.RowTo[string])
+	if err != nil {
+		var zero string
+		return zero, fmt.Errorf("query SpaceAfter: %w", err)
+	}
+	return result, nil
 }
 
 const badEnumNameSQL = `SELECT 'inconvertible_enum_name'::"123";`
@@ -220,7 +255,12 @@ func (q *DBQuerier) BadEnumName(ctx context.Context) (UnnamedEnum123, error) {
 		return zero, fmt.Errorf("query BadEnumName: %w", err)
 	}
 
-	return pgx.CollectOneRow(rows, pgx.RowTo[UnnamedEnum123])
+	result, err := pgx.CollectOneRow(rows, pgx.RowTo[UnnamedEnum123])
+	if err != nil {
+		var zero UnnamedEnum123
+		return zero, fmt.Errorf("query BadEnumName: %w", err)
+	}
+	return result, nil
 }
 
 const goKeywordSQL = `SELECT $1::text;`
@@ -234,5 +274,10 @@ func (q *DBQuerier) GoKeyword(ctx context.Context, go_ string) (string, error) {
 		return zero, fmt.Errorf("query GoKeyword: %w", err)
 	}
 
-	return pgx.CollectOneRow(rows, pgx.RowTo[string])
+	result, err := pgx.CollectOneRow(rows, pgx.RowTo[string])
+	if err != nil {
+		var zero string
+		return zero, fmt.Errorf("query GoKeyword: %w", err)
+	}
+	return result, nil
 }

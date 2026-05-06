@@ -89,7 +89,12 @@ func (q *DBQuerier) CountAuthors(ctx context.Context) (*int, error) {
 		return zero, fmt.Errorf("query CountAuthors: %w", err)
 	}
 
-	return pgx.CollectOneRow(rows, pgx.RowTo[*int])
+	result, err := pgx.CollectOneRow(rows, pgx.RowTo[*int])
+	if err != nil {
+		var zero *int
+		return zero, fmt.Errorf("query CountAuthors: %w", err)
+	}
+	return result, nil
 }
 
 const findAuthorByIDSQL = `SELECT * FROM author WHERE author_id = $1;`
@@ -110,7 +115,12 @@ func (q *DBQuerier) FindAuthorByID(ctx context.Context, authorID int32) (FindAut
 		return zero, fmt.Errorf("query FindAuthorByID: %w", err)
 	}
 
-	return pgx.CollectOneRow(rows, pgx.RowToStructByName[FindAuthorByIDRow])
+	result, err := pgx.CollectOneRow(rows, pgx.RowToStructByName[FindAuthorByIDRow])
+	if err != nil {
+		var zero FindAuthorByIDRow
+		return zero, fmt.Errorf("query FindAuthorByID: %w", err)
+	}
+	return result, nil
 }
 
 const insertAuthorSQL = `INSERT INTO author (first_name, last_name)
@@ -131,7 +141,12 @@ func (q *DBQuerier) InsertAuthor(ctx context.Context, params InsertAuthorParams)
 		return zero, fmt.Errorf("query InsertAuthor: %w", err)
 	}
 
-	return pgx.CollectOneRow(rows, pgx.RowTo[int32])
+	result, err := pgx.CollectOneRow(rows, pgx.RowTo[int32])
+	if err != nil {
+		var zero int32
+		return zero, fmt.Errorf("query InsertAuthor: %w", err)
+	}
+	return result, nil
 }
 
 const deleteAuthorsByFullNameSQL = `DELETE

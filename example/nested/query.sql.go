@@ -112,7 +112,12 @@ func (q *DBQuerier) ArrayNested2(ctx context.Context) ([]ProductImageType, error
 		return zero, fmt.Errorf("query ArrayNested2: %w", err)
 	}
 
-	return pgx.CollectOneRow(rows, pgx.RowTo[[]ProductImageType])
+	result, err := pgx.CollectOneRow(rows, pgx.RowTo[[]ProductImageType])
+	if err != nil {
+		var zero []ProductImageType
+		return zero, fmt.Errorf("query ArrayNested2: %w", err)
+	}
+	return result, nil
 }
 
 const nested3SQL = `SELECT
@@ -134,5 +139,10 @@ func (q *DBQuerier) Nested3(ctx context.Context) ([]ProductImageSetType, error) 
 		return zero, fmt.Errorf("query Nested3: %w", err)
 	}
 
-	return pgx.CollectRows(rows, pgx.RowTo[ProductImageSetType])
+	result, err := pgx.CollectRows(rows, pgx.RowTo[ProductImageSetType])
+	if err != nil {
+		var zero []ProductImageSetType
+		return zero, fmt.Errorf("scan Nested3 row: %w", err)
+	}
+	return result, nil
 }

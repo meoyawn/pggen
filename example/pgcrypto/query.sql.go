@@ -100,5 +100,10 @@ func (q *DBQuerier) FindUser(ctx context.Context, email string) (FindUserRow, er
 		return zero, fmt.Errorf("query FindUser: %w", err)
 	}
 
-	return pgx.CollectOneRow(rows, pgx.RowToStructByName[FindUserRow])
+	result, err := pgx.CollectOneRow(rows, pgx.RowToStructByName[FindUserRow])
+	if err != nil {
+		var zero FindUserRow
+		return zero, fmt.Errorf("query FindUser: %w", err)
+	}
+	return result, nil
 }

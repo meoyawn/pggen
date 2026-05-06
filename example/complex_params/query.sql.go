@@ -114,7 +114,12 @@ func (q *DBQuerier) ParamArrayInt(ctx context.Context, ints []int) ([]int, error
 		return zero, fmt.Errorf("query ParamArrayInt: %w", err)
 	}
 
-	return pgx.CollectOneRow(rows, pgx.RowTo[[]int])
+	result, err := pgx.CollectOneRow(rows, pgx.RowTo[[]int])
+	if err != nil {
+		var zero []int
+		return zero, fmt.Errorf("query ParamArrayInt: %w", err)
+	}
+	return result, nil
 }
 
 const paramNested1SQL = `SELECT $1::dimensions;`
@@ -128,7 +133,12 @@ func (q *DBQuerier) ParamNested1(ctx context.Context, dimensions Dimensions) (Di
 		return zero, fmt.Errorf("query ParamNested1: %w", err)
 	}
 
-	return pgx.CollectOneRow(rows, pgx.RowTo[Dimensions])
+	result, err := pgx.CollectOneRow(rows, pgx.RowTo[Dimensions])
+	if err != nil {
+		var zero Dimensions
+		return zero, fmt.Errorf("query ParamNested1: %w", err)
+	}
+	return result, nil
 }
 
 const paramNested2SQL = `SELECT $1::product_image_type;`
@@ -142,7 +152,12 @@ func (q *DBQuerier) ParamNested2(ctx context.Context, image ProductImageType) (P
 		return zero, fmt.Errorf("query ParamNested2: %w", err)
 	}
 
-	return pgx.CollectOneRow(rows, pgx.RowTo[ProductImageType])
+	result, err := pgx.CollectOneRow(rows, pgx.RowTo[ProductImageType])
+	if err != nil {
+		var zero ProductImageType
+		return zero, fmt.Errorf("query ParamNested2: %w", err)
+	}
+	return result, nil
 }
 
 const paramNested2ArraySQL = `SELECT $1::product_image_type[];`
@@ -156,7 +171,12 @@ func (q *DBQuerier) ParamNested2Array(ctx context.Context, images []ProductImage
 		return zero, fmt.Errorf("query ParamNested2Array: %w", err)
 	}
 
-	return pgx.CollectOneRow(rows, pgx.RowTo[[]ProductImageType])
+	result, err := pgx.CollectOneRow(rows, pgx.RowTo[[]ProductImageType])
+	if err != nil {
+		var zero []ProductImageType
+		return zero, fmt.Errorf("query ParamNested2Array: %w", err)
+	}
+	return result, nil
 }
 
 const paramNested3SQL = `SELECT $1::product_image_set_type;`
@@ -170,5 +190,10 @@ func (q *DBQuerier) ParamNested3(ctx context.Context, imageSet ProductImageSetTy
 		return zero, fmt.Errorf("query ParamNested3: %w", err)
 	}
 
-	return pgx.CollectOneRow(rows, pgx.RowTo[ProductImageSetType])
+	result, err := pgx.CollectOneRow(rows, pgx.RowTo[ProductImageSetType])
+	if err != nil {
+		var zero ProductImageSetType
+		return zero, fmt.Errorf("query ParamNested3: %w", err)
+	}
+	return result, nil
 }

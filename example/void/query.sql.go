@@ -111,13 +111,18 @@ func (q *DBQuerier) VoidTwo(ctx context.Context) (string, error) {
 		return zero, fmt.Errorf("query VoidTwo: %w", err)
 	}
 
-	return pgx.CollectOneRow(rows, func(row pgx.CollectableRow) (string, error) {
-	var item string
-	if err := row.Scan(nil, &item); err != nil {
-		return item, err
+	result, err := pgx.CollectOneRow(rows, func(row pgx.CollectableRow) (string, error) {
+		var item string
+		if err := row.Scan(nil, &item); err != nil {
+			return item, err
+		}
+		return item, nil
+	})
+	if err != nil {
+		var zero string
+		return zero, fmt.Errorf("query VoidTwo: %w", err)
 	}
-	return item, nil
-})
+	return result, nil
 }
 
 const voidThreeSQL = `SELECT void_fn(), 'foo' as foo, 'bar' as bar;`
@@ -136,13 +141,18 @@ func (q *DBQuerier) VoidThree(ctx context.Context) (VoidThreeRow, error) {
 		return zero, fmt.Errorf("query VoidThree: %w", err)
 	}
 
-	return pgx.CollectOneRow(rows, func(row pgx.CollectableRow) (VoidThreeRow, error) {
-	var item VoidThreeRow
-	if err := row.Scan(nil, &item.Foo, &item.Bar); err != nil {
-		return item, err
+	result, err := pgx.CollectOneRow(rows, func(row pgx.CollectableRow) (VoidThreeRow, error) {
+		var item VoidThreeRow
+		if err := row.Scan(nil, &item.Foo, &item.Bar); err != nil {
+			return item, err
+		}
+		return item, nil
+	})
+	if err != nil {
+		var zero VoidThreeRow
+		return zero, fmt.Errorf("query VoidThree: %w", err)
 	}
-	return item, nil
-})
+	return result, nil
 }
 
 const voidThree2SQL = `SELECT 'foo' as foo, void_fn(), void_fn();`
@@ -156,11 +166,16 @@ func (q *DBQuerier) VoidThree2(ctx context.Context) ([]string, error) {
 		return zero, fmt.Errorf("query VoidThree2: %w", err)
 	}
 
-	return pgx.CollectRows(rows, func(row pgx.CollectableRow) (string, error) {
-	var item string
-	if err := row.Scan(&item, nil, nil); err != nil {
-		return item, err
+	result, err := pgx.CollectRows(rows, func(row pgx.CollectableRow) (string, error) {
+		var item string
+		if err := row.Scan(&item, nil, nil); err != nil {
+			return item, err
+		}
+		return item, nil
+	})
+	if err != nil {
+		var zero []string
+		return zero, fmt.Errorf("scan VoidThree2 row: %w", err)
 	}
-	return item, nil
-})
+	return result, nil
 }

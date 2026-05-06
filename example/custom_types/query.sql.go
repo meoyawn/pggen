@@ -91,7 +91,12 @@ func (q *DBQuerier) CustomTypes(ctx context.Context) (CustomTypesRow, error) {
 		return zero, fmt.Errorf("query CustomTypes: %w", err)
 	}
 
-	return pgx.CollectOneRow(rows, pgx.RowToStructByName[CustomTypesRow])
+	result, err := pgx.CollectOneRow(rows, pgx.RowToStructByName[CustomTypesRow])
+	if err != nil {
+		var zero CustomTypesRow
+		return zero, fmt.Errorf("query CustomTypes: %w", err)
+	}
+	return result, nil
 }
 
 const customStringSQL = `SELECT 'some_text'::text;`
@@ -105,7 +110,12 @@ func (q *DBQuerier) CustomString(ctx context.Context) (mytype.String, error) {
 		return zero, fmt.Errorf("query CustomString: %w", err)
 	}
 
-	return pgx.CollectOneRow(rows, pgx.RowTo[mytype.String])
+	result, err := pgx.CollectOneRow(rows, pgx.RowTo[mytype.String])
+	if err != nil {
+		var zero mytype.String
+		return zero, fmt.Errorf("query CustomString: %w", err)
+	}
+	return result, nil
 }
 
 const customMyIntSQL = `SELECT '5'::my_int as int5;`
@@ -119,7 +129,12 @@ func (q *DBQuerier) CustomMyInt(ctx context.Context) (int, error) {
 		return zero, fmt.Errorf("query CustomMyInt: %w", err)
 	}
 
-	return pgx.CollectOneRow(rows, pgx.RowTo[int])
+	result, err := pgx.CollectOneRow(rows, pgx.RowTo[int])
+	if err != nil {
+		var zero int
+		return zero, fmt.Errorf("query CustomMyInt: %w", err)
+	}
+	return result, nil
 }
 
 const intArraySQL = `SELECT ARRAY ['5', '6', '7']::int[] as ints;`
@@ -133,5 +148,10 @@ func (q *DBQuerier) IntArray(ctx context.Context) ([][]int32, error) {
 		return zero, fmt.Errorf("query IntArray: %w", err)
 	}
 
-	return pgx.CollectRows(rows, pgx.RowTo[[]int32])
+	result, err := pgx.CollectRows(rows, pgx.RowTo[[]int32])
+	if err != nil {
+		var zero [][]int32
+		return zero, fmt.Errorf("scan IntArray row: %w", err)
+	}
+	return result, nil
 }

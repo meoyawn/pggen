@@ -19,5 +19,10 @@ func (q *DBQuerier) Bravo(ctx context.Context) (string, error) {
 		return zero, fmt.Errorf("query Bravo: %w", err)
 	}
 
-	return pgx.CollectOneRow(rows, pgx.RowTo[string])
+	result, err := pgx.CollectOneRow(rows, pgx.RowTo[string])
+	if err != nil {
+		var zero string
+		return zero, fmt.Errorf("query Bravo: %w", err)
+	}
+	return result, nil
 }

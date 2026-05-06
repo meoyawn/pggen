@@ -69,8 +69,13 @@ func (q *DBQuerier) {{ $q.Name }}(ctx context.Context {{- $q.EmitParams }}) ({{ 
 		return zero, fmt.Errorf("query {{ $q.Name }}: %w", err)
 	}
 
-	return {{ $q.EmitCollectionFunc }}(rows, {{ $q.EmitRowMapper }})
-{{- end }}
+	result, err := {{ $q.EmitCollectionFunc }}(rows, {{ $q.EmitRowMapper }})
+	if err != nil {
+		{{ $q.EmitZeroResultInit "zero" }}
+		return zero, fmt.Errorf("{{ $q.EmitCollectionErrContext }}: %w", err)
+	}
+	return result, nil
+	{{- end }}
 }
 {{- end -}}
 {{- "\n" -}}

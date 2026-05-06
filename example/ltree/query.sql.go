@@ -88,7 +88,12 @@ func (q *DBQuerier) FindTopScienceChildren(ctx context.Context) ([]pgtype.Text, 
 		return zero, fmt.Errorf("query FindTopScienceChildren: %w", err)
 	}
 
-	return pgx.CollectRows(rows, pgx.RowTo[pgtype.Text])
+	result, err := pgx.CollectRows(rows, pgx.RowTo[pgtype.Text])
+	if err != nil {
+		var zero []pgtype.Text
+		return zero, fmt.Errorf("scan FindTopScienceChildren row: %w", err)
+	}
+	return result, nil
 }
 
 const findTopScienceChildrenAggSQL = `SELECT array_agg(path)
@@ -104,7 +109,12 @@ func (q *DBQuerier) FindTopScienceChildrenAgg(ctx context.Context) (pgtype.Array
 		return zero, fmt.Errorf("query FindTopScienceChildrenAgg: %w", err)
 	}
 
-	return pgx.CollectOneRow(rows, pgx.RowTo[pgtype.Array[pgtype.Text]])
+	result, err := pgx.CollectOneRow(rows, pgx.RowTo[pgtype.Array[pgtype.Text]])
+	if err != nil {
+		var zero pgtype.Array[pgtype.Text]
+		return zero, fmt.Errorf("query FindTopScienceChildrenAgg: %w", err)
+	}
+	return result, nil
 }
 
 const insertSampleDataSQL = `INSERT INTO test
@@ -157,5 +167,10 @@ func (q *DBQuerier) FindLtreeInput(ctx context.Context, inLtree pgtype.Text, inL
 		return zero, fmt.Errorf("query FindLtreeInput: %w", err)
 	}
 
-	return pgx.CollectOneRow(rows, pgx.RowToStructByName[FindLtreeInputRow])
+	result, err := pgx.CollectOneRow(rows, pgx.RowToStructByName[FindLtreeInputRow])
+	if err != nil {
+		var zero FindLtreeInputRow
+		return zero, fmt.Errorf("query FindLtreeInput: %w", err)
+	}
+	return result, nil
 }

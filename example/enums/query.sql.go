@@ -126,7 +126,12 @@ func (q *DBQuerier) FindAllDevices(ctx context.Context) ([]FindAllDevicesRow, er
 		return zero, fmt.Errorf("query FindAllDevices: %w", err)
 	}
 
-	return pgx.CollectRows(rows, pgx.RowToStructByName[FindAllDevicesRow])
+	result, err := pgx.CollectRows(rows, pgx.RowToStructByName[FindAllDevicesRow])
+	if err != nil {
+		var zero []FindAllDevicesRow
+		return zero, fmt.Errorf("scan FindAllDevices row: %w", err)
+	}
+	return result, nil
 }
 
 const insertDeviceSQL = `INSERT INTO device (mac, type)
@@ -153,7 +158,12 @@ func (q *DBQuerier) FindOneDeviceArray(ctx context.Context) ([]DeviceType, error
 		return zero, fmt.Errorf("query FindOneDeviceArray: %w", err)
 	}
 
-	return pgx.CollectOneRow(rows, pgx.RowTo[[]DeviceType])
+	result, err := pgx.CollectOneRow(rows, pgx.RowTo[[]DeviceType])
+	if err != nil {
+		var zero []DeviceType
+		return zero, fmt.Errorf("query FindOneDeviceArray: %w", err)
+	}
+	return result, nil
 }
 
 const findManyDeviceArraySQL = `SELECT enum_range('ipad'::device_type, 'iot'::device_type) AS device_types
@@ -169,7 +179,12 @@ func (q *DBQuerier) FindManyDeviceArray(ctx context.Context) ([][]DeviceType, er
 		return zero, fmt.Errorf("query FindManyDeviceArray: %w", err)
 	}
 
-	return pgx.CollectRows(rows, pgx.RowTo[[]DeviceType])
+	result, err := pgx.CollectRows(rows, pgx.RowTo[[]DeviceType])
+	if err != nil {
+		var zero [][]DeviceType
+		return zero, fmt.Errorf("scan FindManyDeviceArray row: %w", err)
+	}
+	return result, nil
 }
 
 const findManyDeviceArrayWithNumSQL = `SELECT 1 AS num, enum_range('ipad'::device_type, 'iot'::device_type) AS device_types
@@ -190,7 +205,12 @@ func (q *DBQuerier) FindManyDeviceArrayWithNum(ctx context.Context) ([]FindManyD
 		return zero, fmt.Errorf("query FindManyDeviceArrayWithNum: %w", err)
 	}
 
-	return pgx.CollectRows(rows, pgx.RowToStructByName[FindManyDeviceArrayWithNumRow])
+	result, err := pgx.CollectRows(rows, pgx.RowToStructByName[FindManyDeviceArrayWithNumRow])
+	if err != nil {
+		var zero []FindManyDeviceArrayWithNumRow
+		return zero, fmt.Errorf("scan FindManyDeviceArrayWithNum row: %w", err)
+	}
+	return result, nil
 }
 
 const enumInsideCompositeSQL = `SELECT ROW('08:00:2b:01:02:03'::macaddr, 'phone'::device_type) ::device;`
@@ -204,5 +224,10 @@ func (q *DBQuerier) EnumInsideComposite(ctx context.Context) (Device, error) {
 		return zero, fmt.Errorf("query EnumInsideComposite: %w", err)
 	}
 
-	return pgx.CollectOneRow(rows, pgx.RowTo[Device])
+	result, err := pgx.CollectOneRow(rows, pgx.RowTo[Device])
+	if err != nil {
+		var zero Device
+		return zero, fmt.Errorf("query EnumInsideComposite: %w", err)
+	}
+	return result, nil
 }

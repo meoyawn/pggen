@@ -127,7 +127,12 @@ func (q *DBQuerier) FindDevicesByUser(ctx context.Context, id int) ([]FindDevice
 		return zero, fmt.Errorf("query FindDevicesByUser: %w", err)
 	}
 
-	return pgx.CollectRows(rows, pgx.RowToStructByName[FindDevicesByUserRow])
+	result, err := pgx.CollectRows(rows, pgx.RowToStructByName[FindDevicesByUserRow])
+	if err != nil {
+		var zero []FindDevicesByUserRow
+		return zero, fmt.Errorf("scan FindDevicesByUser row: %w", err)
+	}
+	return result, nil
 }
 
 const compositeUserSQL = `SELECT
@@ -152,7 +157,12 @@ func (q *DBQuerier) CompositeUser(ctx context.Context) ([]CompositeUserRow, erro
 		return zero, fmt.Errorf("query CompositeUser: %w", err)
 	}
 
-	return pgx.CollectRows(rows, pgx.RowToStructByName[CompositeUserRow])
+	result, err := pgx.CollectRows(rows, pgx.RowToStructByName[CompositeUserRow])
+	if err != nil {
+		var zero []CompositeUserRow
+		return zero, fmt.Errorf("scan CompositeUser row: %w", err)
+	}
+	return result, nil
 }
 
 const compositeUserOneSQL = `SELECT ROW (15, 'qux')::"user" AS "user";`
@@ -166,7 +176,12 @@ func (q *DBQuerier) CompositeUserOne(ctx context.Context) (User, error) {
 		return zero, fmt.Errorf("query CompositeUserOne: %w", err)
 	}
 
-	return pgx.CollectOneRow(rows, pgx.RowTo[User])
+	result, err := pgx.CollectOneRow(rows, pgx.RowTo[User])
+	if err != nil {
+		var zero User
+		return zero, fmt.Errorf("query CompositeUserOne: %w", err)
+	}
+	return result, nil
 }
 
 const compositeUserOneTwoColsSQL = `SELECT 1 AS num, ROW (15, 'qux')::"user" AS "user";`
@@ -185,7 +200,12 @@ func (q *DBQuerier) CompositeUserOneTwoCols(ctx context.Context) (CompositeUserO
 		return zero, fmt.Errorf("query CompositeUserOneTwoCols: %w", err)
 	}
 
-	return pgx.CollectOneRow(rows, pgx.RowToStructByName[CompositeUserOneTwoColsRow])
+	result, err := pgx.CollectOneRow(rows, pgx.RowToStructByName[CompositeUserOneTwoColsRow])
+	if err != nil {
+		var zero CompositeUserOneTwoColsRow
+		return zero, fmt.Errorf("query CompositeUserOneTwoCols: %w", err)
+	}
+	return result, nil
 }
 
 const compositeUserManySQL = `SELECT ROW (15, 'qux')::"user" AS "user";`
@@ -199,7 +219,12 @@ func (q *DBQuerier) CompositeUserMany(ctx context.Context) ([]User, error) {
 		return zero, fmt.Errorf("query CompositeUserMany: %w", err)
 	}
 
-	return pgx.CollectRows(rows, pgx.RowTo[User])
+	result, err := pgx.CollectRows(rows, pgx.RowTo[User])
+	if err != nil {
+		var zero []User
+		return zero, fmt.Errorf("scan CompositeUserMany row: %w", err)
+	}
+	return result, nil
 }
 
 const insertUserSQL = `INSERT INTO "user" (id, name)

@@ -148,7 +148,12 @@ func (q *DBQuerier) FindEnumTypes(ctx context.Context, oids []uint32) ([]FindEnu
 		return zero, fmt.Errorf("query FindEnumTypes: %w", err)
 	}
 
-	return pgx.CollectRows(rows, pgx.RowToStructByName[FindEnumTypesRow])
+	result, err := pgx.CollectRows(rows, pgx.RowToStructByName[FindEnumTypesRow])
+	if err != nil {
+		var zero []FindEnumTypesRow
+		return zero, fmt.Errorf("scan FindEnumTypes row: %w", err)
+	}
+	return result, nil
 }
 
 const findArrayTypesSQL = `SELECT
@@ -196,7 +201,12 @@ func (q *DBQuerier) FindArrayTypes(ctx context.Context, oids []uint32) ([]FindAr
 		return zero, fmt.Errorf("query FindArrayTypes: %w", err)
 	}
 
-	return pgx.CollectRows(rows, pgx.RowToStructByName[FindArrayTypesRow])
+	result, err := pgx.CollectRows(rows, pgx.RowToStructByName[FindArrayTypesRow])
+	if err != nil {
+		var zero []FindArrayTypesRow
+		return zero, fmt.Errorf("scan FindArrayTypes row: %w", err)
+	}
+	return result, nil
 }
 
 const findCompositeTypesSQL = `WITH table_cols AS (
@@ -249,7 +259,12 @@ func (q *DBQuerier) FindCompositeTypes(ctx context.Context, oids []uint32) ([]Fi
 		return zero, fmt.Errorf("query FindCompositeTypes: %w", err)
 	}
 
-	return pgx.CollectRows(rows, pgx.RowToStructByName[FindCompositeTypesRow])
+	result, err := pgx.CollectRows(rows, pgx.RowToStructByName[FindCompositeTypesRow])
+	if err != nil {
+		var zero []FindCompositeTypesRow
+		return zero, fmt.Errorf("scan FindCompositeTypes row: %w", err)
+	}
+	return result, nil
 }
 
 const findDescendantOIDsSQL = `WITH RECURSIVE oid_descs(oid) AS (
@@ -289,7 +304,12 @@ func (q *DBQuerier) FindDescendantOIDs(ctx context.Context, oids []uint32) ([]ui
 		return zero, fmt.Errorf("query FindDescendantOIDs: %w", err)
 	}
 
-	return pgx.CollectRows(rows, pgx.RowTo[uint32])
+	result, err := pgx.CollectRows(rows, pgx.RowTo[uint32])
+	if err != nil {
+		var zero []uint32
+		return zero, fmt.Errorf("scan FindDescendantOIDs row: %w", err)
+	}
+	return result, nil
 }
 
 const findOIDByNameSQL = `SELECT oid
@@ -307,7 +327,12 @@ func (q *DBQuerier) FindOIDByName(ctx context.Context, name string) (uint32, err
 		return zero, fmt.Errorf("query FindOIDByName: %w", err)
 	}
 
-	return pgx.CollectOneRow(rows, pgx.RowTo[uint32])
+	result, err := pgx.CollectOneRow(rows, pgx.RowTo[uint32])
+	if err != nil {
+		var zero uint32
+		return zero, fmt.Errorf("query FindOIDByName: %w", err)
+	}
+	return result, nil
 }
 
 const findOIDNameSQL = `SELECT typname AS name
@@ -323,7 +348,12 @@ func (q *DBQuerier) FindOIDName(ctx context.Context, oid uint32) (string, error)
 		return zero, fmt.Errorf("query FindOIDName: %w", err)
 	}
 
-	return pgx.CollectOneRow(rows, pgx.RowTo[string])
+	result, err := pgx.CollectOneRow(rows, pgx.RowTo[string])
+	if err != nil {
+		var zero string
+		return zero, fmt.Errorf("query FindOIDName: %w", err)
+	}
+	return result, nil
 }
 
 const findOIDNamesSQL = `SELECT oid, typname AS name, typtype AS kind
@@ -345,5 +375,10 @@ func (q *DBQuerier) FindOIDNames(ctx context.Context, oid []uint32) ([]FindOIDNa
 		return zero, fmt.Errorf("query FindOIDNames: %w", err)
 	}
 
-	return pgx.CollectRows(rows, pgx.RowToStructByName[FindOIDNamesRow])
+	result, err := pgx.CollectRows(rows, pgx.RowToStructByName[FindOIDNamesRow])
+	if err != nil {
+		var zero []FindOIDNamesRow
+		return zero, fmt.Errorf("scan FindOIDNames row: %w", err)
+	}
+	return result, nil
 }

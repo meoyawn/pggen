@@ -91,7 +91,12 @@ func (q *DBQuerier) GenSeries1(ctx context.Context) (*int, error) {
 		return zero, fmt.Errorf("query GenSeries1: %w", err)
 	}
 
-	return pgx.CollectOneRow(rows, pgx.RowTo[*int])
+	result, err := pgx.CollectOneRow(rows, pgx.RowTo[*int])
+	if err != nil {
+		var zero *int
+		return zero, fmt.Errorf("query GenSeries1: %w", err)
+	}
+	return result, nil
 }
 
 const genSeriesSQL = `SELECT n
@@ -106,7 +111,12 @@ func (q *DBQuerier) GenSeries(ctx context.Context) ([]*int, error) {
 		return zero, fmt.Errorf("query GenSeries: %w", err)
 	}
 
-	return pgx.CollectRows(rows, pgx.RowTo[*int])
+	result, err := pgx.CollectRows(rows, pgx.RowTo[*int])
+	if err != nil {
+		var zero []*int
+		return zero, fmt.Errorf("scan GenSeries row: %w", err)
+	}
+	return result, nil
 }
 
 const genSeriesArr1SQL = `SELECT array_agg(n)
@@ -121,7 +131,12 @@ func (q *DBQuerier) GenSeriesArr1(ctx context.Context) ([]int, error) {
 		return zero, fmt.Errorf("query GenSeriesArr1: %w", err)
 	}
 
-	return pgx.CollectOneRow(rows, pgx.RowTo[[]int])
+	result, err := pgx.CollectOneRow(rows, pgx.RowTo[[]int])
+	if err != nil {
+		var zero []int
+		return zero, fmt.Errorf("query GenSeriesArr1: %w", err)
+	}
+	return result, nil
 }
 
 const genSeriesArrSQL = `SELECT array_agg(n)
@@ -136,7 +151,12 @@ func (q *DBQuerier) GenSeriesArr(ctx context.Context) ([][]int, error) {
 		return zero, fmt.Errorf("query GenSeriesArr: %w", err)
 	}
 
-	return pgx.CollectRows(rows, pgx.RowTo[[]int])
+	result, err := pgx.CollectRows(rows, pgx.RowTo[[]int])
+	if err != nil {
+		var zero [][]int
+		return zero, fmt.Errorf("scan GenSeriesArr row: %w", err)
+	}
+	return result, nil
 }
 
 const genSeriesStr1SQL = `SELECT n::text
@@ -152,7 +172,12 @@ func (q *DBQuerier) GenSeriesStr1(ctx context.Context) (*string, error) {
 		return zero, fmt.Errorf("query GenSeriesStr1: %w", err)
 	}
 
-	return pgx.CollectOneRow(rows, pgx.RowTo[*string])
+	result, err := pgx.CollectOneRow(rows, pgx.RowTo[*string])
+	if err != nil {
+		var zero *string
+		return zero, fmt.Errorf("query GenSeriesStr1: %w", err)
+	}
+	return result, nil
 }
 
 const genSeriesStrSQL = `SELECT n::text
@@ -167,5 +192,10 @@ func (q *DBQuerier) GenSeriesStr(ctx context.Context) ([]*string, error) {
 		return zero, fmt.Errorf("query GenSeriesStr: %w", err)
 	}
 
-	return pgx.CollectRows(rows, pgx.RowTo[*string])
+	result, err := pgx.CollectRows(rows, pgx.RowTo[*string])
+	if err != nil {
+		var zero []*string
+		return zero, fmt.Errorf("scan GenSeriesStr row: %w", err)
+	}
+	return result, nil
 }

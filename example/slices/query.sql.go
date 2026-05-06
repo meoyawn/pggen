@@ -86,7 +86,12 @@ func (q *DBQuerier) GetBools(ctx context.Context, data []bool) ([]bool, error) {
 		return zero, fmt.Errorf("query GetBools: %w", err)
 	}
 
-	return pgx.CollectOneRow(rows, pgx.RowTo[[]bool])
+	result, err := pgx.CollectOneRow(rows, pgx.RowTo[[]bool])
+	if err != nil {
+		var zero []bool
+		return zero, fmt.Errorf("query GetBools: %w", err)
+	}
+	return result, nil
 }
 
 const getOneTimestampSQL = `SELECT $1::timestamp;`
@@ -100,7 +105,12 @@ func (q *DBQuerier) GetOneTimestamp(ctx context.Context, data *time.Time) (*time
 		return zero, fmt.Errorf("query GetOneTimestamp: %w", err)
 	}
 
-	return pgx.CollectOneRow(rows, pgx.RowTo[*time.Time])
+	result, err := pgx.CollectOneRow(rows, pgx.RowTo[*time.Time])
+	if err != nil {
+		var zero *time.Time
+		return zero, fmt.Errorf("query GetOneTimestamp: %w", err)
+	}
+	return result, nil
 }
 
 const getManyTimestamptzsSQL = `SELECT *
@@ -115,7 +125,12 @@ func (q *DBQuerier) GetManyTimestamptzs(ctx context.Context, data []time.Time) (
 		return zero, fmt.Errorf("query GetManyTimestamptzs: %w", err)
 	}
 
-	return pgx.CollectRows(rows, pgx.RowTo[*time.Time])
+	result, err := pgx.CollectRows(rows, pgx.RowTo[*time.Time])
+	if err != nil {
+		var zero []*time.Time
+		return zero, fmt.Errorf("scan GetManyTimestamptzs row: %w", err)
+	}
+	return result, nil
 }
 
 const getManyTimestampsSQL = `SELECT *
@@ -130,5 +145,10 @@ func (q *DBQuerier) GetManyTimestamps(ctx context.Context, data []*time.Time) ([
 		return zero, fmt.Errorf("query GetManyTimestamps: %w", err)
 	}
 
-	return pgx.CollectRows(rows, pgx.RowTo[*time.Time])
+	result, err := pgx.CollectRows(rows, pgx.RowTo[*time.Time])
+	if err != nil {
+		var zero []*time.Time
+		return zero, fmt.Errorf("scan GetManyTimestamps row: %w", err)
+	}
+	return result, nil
 }

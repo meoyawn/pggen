@@ -119,7 +119,12 @@ func (q *DBQuerier) FindAuthorByID(ctx context.Context, authorID int32) (FindAut
 		return zero, fmt.Errorf("query FindAuthorByID: %w", err)
 	}
 
-	return pgx.CollectOneRow(rows, pgx.RowToStructByName[FindAuthorByIDRow])
+	result, err := pgx.CollectOneRow(rows, pgx.RowToStructByName[FindAuthorByIDRow])
+	if err != nil {
+		var zero FindAuthorByIDRow
+		return zero, fmt.Errorf("query FindAuthorByID: %w", err)
+	}
+	return result, nil
 }
 
 const findAuthorsSQL = `SELECT * FROM author WHERE first_name = $1;`
@@ -140,7 +145,12 @@ func (q *DBQuerier) FindAuthors(ctx context.Context, firstName string) ([]FindAu
 		return zero, fmt.Errorf("query FindAuthors: %w", err)
 	}
 
-	return pgx.CollectRows(rows, pgx.RowToStructByName[FindAuthorsRow])
+	result, err := pgx.CollectRows(rows, pgx.RowToStructByName[FindAuthorsRow])
+	if err != nil {
+		var zero []FindAuthorsRow
+		return zero, fmt.Errorf("scan FindAuthors row: %w", err)
+	}
+	return result, nil
 }
 
 const findAuthorNamesSQL = `SELECT first_name, last_name FROM author ORDER BY author_id = $1;`
@@ -159,7 +169,12 @@ func (q *DBQuerier) FindAuthorNames(ctx context.Context, authorID int32) ([]Find
 		return zero, fmt.Errorf("query FindAuthorNames: %w", err)
 	}
 
-	return pgx.CollectRows(rows, pgx.RowToStructByName[FindAuthorNamesRow])
+	result, err := pgx.CollectRows(rows, pgx.RowToStructByName[FindAuthorNamesRow])
+	if err != nil {
+		var zero []FindAuthorNamesRow
+		return zero, fmt.Errorf("scan FindAuthorNames row: %w", err)
+	}
+	return result, nil
 }
 
 const findFirstNamesSQL = `SELECT first_name FROM author ORDER BY author_id = $1;`
@@ -173,7 +188,12 @@ func (q *DBQuerier) FindFirstNames(ctx context.Context, authorID int32) ([]*stri
 		return zero, fmt.Errorf("query FindFirstNames: %w", err)
 	}
 
-	return pgx.CollectRows(rows, pgx.RowTo[*string])
+	result, err := pgx.CollectRows(rows, pgx.RowTo[*string])
+	if err != nil {
+		var zero []*string
+		return zero, fmt.Errorf("scan FindFirstNames row: %w", err)
+	}
+	return result, nil
 }
 
 const findFirstAuthorSQL = `SELECT * FROM author ORDER BY author_id;`
@@ -194,7 +214,12 @@ func (q *DBQuerier) FindFirstAuthor(ctx context.Context) (FindFirstAuthorRow, er
 		return zero, fmt.Errorf("query FindFirstAuthor: %w", err)
 	}
 
-	return pgx.CollectOneRow(rows, pgx.RowToStructByName[FindFirstAuthorRow])
+	result, err := pgx.CollectOneRow(rows, pgx.RowToStructByName[FindFirstAuthorRow])
+	if err != nil {
+		var zero FindFirstAuthorRow
+		return zero, fmt.Errorf("query FindFirstAuthor: %w", err)
+	}
+	return result, nil
 }
 
 const deleteAuthorsSQL = `DELETE FROM author WHERE first_name = 'joe';`
@@ -256,7 +281,12 @@ func (q *DBQuerier) InsertAuthor(ctx context.Context, firstName string, lastName
 		return zero, fmt.Errorf("query InsertAuthor: %w", err)
 	}
 
-	return pgx.CollectOneRow(rows, pgx.RowTo[int32])
+	result, err := pgx.CollectOneRow(rows, pgx.RowTo[int32])
+	if err != nil {
+		var zero int32
+		return zero, fmt.Errorf("query InsertAuthor: %w", err)
+	}
+	return result, nil
 }
 
 const insertAuthorSuffixSQL = `INSERT INTO author (first_name, last_name, suffix)
@@ -285,7 +315,12 @@ func (q *DBQuerier) InsertAuthorSuffix(ctx context.Context, params InsertAuthorS
 		return zero, fmt.Errorf("query InsertAuthorSuffix: %w", err)
 	}
 
-	return pgx.CollectOneRow(rows, pgx.RowToStructByName[InsertAuthorSuffixRow])
+	result, err := pgx.CollectOneRow(rows, pgx.RowToStructByName[InsertAuthorSuffixRow])
+	if err != nil {
+		var zero InsertAuthorSuffixRow
+		return zero, fmt.Errorf("query InsertAuthorSuffix: %w", err)
+	}
+	return result, nil
 }
 
 const stringAggFirstNameSQL = `SELECT string_agg(first_name, ',') AS names FROM author WHERE author_id = $1;`
@@ -299,7 +334,12 @@ func (q *DBQuerier) StringAggFirstName(ctx context.Context, authorID int32) (*st
 		return zero, fmt.Errorf("query StringAggFirstName: %w", err)
 	}
 
-	return pgx.CollectOneRow(rows, pgx.RowTo[*string])
+	result, err := pgx.CollectOneRow(rows, pgx.RowTo[*string])
+	if err != nil {
+		var zero *string
+		return zero, fmt.Errorf("query StringAggFirstName: %w", err)
+	}
+	return result, nil
 }
 
 const arrayAggFirstNameSQL = `SELECT array_agg(first_name) AS names FROM author WHERE author_id = $1;`
@@ -313,5 +353,10 @@ func (q *DBQuerier) ArrayAggFirstName(ctx context.Context, authorID int32) ([]st
 		return zero, fmt.Errorf("query ArrayAggFirstName: %w", err)
 	}
 
-	return pgx.CollectOneRow(rows, pgx.RowTo[[]string])
+	result, err := pgx.CollectOneRow(rows, pgx.RowTo[[]string])
+	if err != nil {
+		var zero []string
+		return zero, fmt.Errorf("query ArrayAggFirstName: %w", err)
+	}
+	return result, nil
 }

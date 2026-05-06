@@ -136,7 +136,12 @@ func (q *DBQuerier) SearchScreenshots(ctx context.Context, params SearchScreensh
 		return zero, fmt.Errorf("query SearchScreenshots: %w", err)
 	}
 
-	return pgx.CollectRows(rows, pgx.RowToStructByName[SearchScreenshotsRow])
+	result, err := pgx.CollectRows(rows, pgx.RowToStructByName[SearchScreenshotsRow])
+	if err != nil {
+		var zero []SearchScreenshotsRow
+		return zero, fmt.Errorf("scan SearchScreenshots row: %w", err)
+	}
+	return result, nil
 }
 
 const searchScreenshotsOneColSQL = `SELECT
@@ -163,7 +168,12 @@ func (q *DBQuerier) SearchScreenshotsOneCol(ctx context.Context, params SearchSc
 		return zero, fmt.Errorf("query SearchScreenshotsOneCol: %w", err)
 	}
 
-	return pgx.CollectRows(rows, pgx.RowTo[[]Blocks])
+	result, err := pgx.CollectRows(rows, pgx.RowTo[[]Blocks])
+	if err != nil {
+		var zero [][]Blocks
+		return zero, fmt.Errorf("scan SearchScreenshotsOneCol row: %w", err)
+	}
+	return result, nil
 }
 
 const insertScreenshotBlocksSQL = `WITH screens AS (
@@ -190,7 +200,12 @@ func (q *DBQuerier) InsertScreenshotBlocks(ctx context.Context, screenshotID int
 		return zero, fmt.Errorf("query InsertScreenshotBlocks: %w", err)
 	}
 
-	return pgx.CollectOneRow(rows, pgx.RowToStructByName[InsertScreenshotBlocksRow])
+	result, err := pgx.CollectOneRow(rows, pgx.RowToStructByName[InsertScreenshotBlocksRow])
+	if err != nil {
+		var zero InsertScreenshotBlocksRow
+		return zero, fmt.Errorf("query InsertScreenshotBlocks: %w", err)
+	}
+	return result, nil
 }
 
 const arraysInputSQL = `SELECT $1::arrays;`
@@ -204,7 +219,12 @@ func (q *DBQuerier) ArraysInput(ctx context.Context, arrays Arrays) (Arrays, err
 		return zero, fmt.Errorf("query ArraysInput: %w", err)
 	}
 
-	return pgx.CollectOneRow(rows, pgx.RowTo[Arrays])
+	result, err := pgx.CollectOneRow(rows, pgx.RowTo[Arrays])
+	if err != nil {
+		var zero Arrays
+		return zero, fmt.Errorf("query ArraysInput: %w", err)
+	}
+	return result, nil
 }
 
 const userEmailsSQL = `SELECT ('foo', 'bar@example.com')::user_email;`
@@ -218,5 +238,10 @@ func (q *DBQuerier) UserEmails(ctx context.Context) (UserEmail, error) {
 		return zero, fmt.Errorf("query UserEmails: %w", err)
 	}
 
-	return pgx.CollectOneRow(rows, pgx.RowTo[UserEmail])
+	result, err := pgx.CollectOneRow(rows, pgx.RowTo[UserEmail])
+	if err != nil {
+		var zero UserEmail
+		return zero, fmt.Errorf("query UserEmails: %w", err)
+	}
+	return result, nil
 }

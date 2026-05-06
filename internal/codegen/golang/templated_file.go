@@ -270,6 +270,19 @@ func (tq TemplatedQuery) EmitCollectionFunc() (string, error) {
 	}
 }
 
+func (tq TemplatedQuery) EmitCollectionErrContext() (string, error) {
+	switch tq.ResultKind {
+	case ast.ResultKindExec:
+		return "", fmt.Errorf("cannot EmitCollectionErrContext for :exec query %s", tq.Name)
+	case ast.ResultKindMany:
+		return "scan " + tq.Name + " row", nil
+	case ast.ResultKindOne:
+		return "query " + tq.Name, nil
+	default:
+		return "", fmt.Errorf("unhandled EmitCollectionErrContext type: %s", tq.ResultKind)
+	}
+}
+
 func (tq TemplatedQuery) EmitRowToFunc() (string, error) {
 	switch tq.ResultKind {
 	case ast.ResultKindExec:
@@ -298,12 +311,12 @@ func (tq TemplatedQuery) EmitRowMapper() (string, error) {
 		return "", err
 	}
 	return fmt.Sprintf(`func(row pgx.CollectableRow) (%s, error) {
-	var item %s
-	if err := row.Scan(%s); err != nil {
-		return item, err
-	}
-	return item, nil
-}`, resultType, resultType, scanTargets), nil
+		var item %s
+		if err := row.Scan(%s); err != nil {
+			return item, err
+		}
+		return item, nil
+	}`, resultType, resultType, scanTargets), nil
 }
 
 func (tq TemplatedQuery) EmitScanTargets() (string, error) {

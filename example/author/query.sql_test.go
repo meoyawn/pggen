@@ -34,6 +34,7 @@ func TestNewQuerier_FindAuthorByID(t *testing.T) {
 	t.Run("FindAuthorByID - none-exists", func(t *testing.T) {
 		missingAuthorByID, err := q.FindAuthorByID(t.Context(), 888)
 		require.Error(t, err, "expected error when finding author ID that doesn't match")
+		assert.ErrorContains(t, err, "query FindAuthorByID:")
 		assert.Zero(t, missingAuthorByID, "expected zero value when error")
 		if !errors.Is(err, pgx.ErrNoRows) {
 			t.Fatalf("expected no rows error to wrap pgx.ErrNoRows; got %s", err)

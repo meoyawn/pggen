@@ -94,7 +94,12 @@ func (q *DBQuerier) AlphaNested(ctx context.Context) (string, error) {
 		return zero, fmt.Errorf("query AlphaNested: %w", err)
 	}
 
-	return pgx.CollectOneRow(rows, pgx.RowTo[string])
+	result, err := pgx.CollectOneRow(rows, pgx.RowTo[string])
+	if err != nil {
+		var zero string
+		return zero, fmt.Errorf("query AlphaNested: %w", err)
+	}
+	return result, nil
 }
 
 const alphaCompositeArraySQL = `SELECT ARRAY[ROW('key')]::alpha[];`
@@ -108,5 +113,10 @@ func (q *DBQuerier) AlphaCompositeArray(ctx context.Context) ([]Alpha, error) {
 		return zero, fmt.Errorf("query AlphaCompositeArray: %w", err)
 	}
 
-	return pgx.CollectOneRow(rows, pgx.RowTo[[]Alpha])
+	result, err := pgx.CollectOneRow(rows, pgx.RowTo[[]Alpha])
+	if err != nil {
+		var zero []Alpha
+		return zero, fmt.Errorf("query AlphaCompositeArray: %w", err)
+	}
+	return result, nil
 }
