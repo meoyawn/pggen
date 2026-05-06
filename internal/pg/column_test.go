@@ -7,8 +7,7 @@ import (
 	"time"
 
 	"github.com/google/go-cmp/cmp"
-	"github.com/jackc/pgtype"
-	"github.com/jackc/pgx/v4"
+	"github.com/jackc/pgx/v5"
 	"github.com/jschaf/pggen/internal/pgtest"
 	"github.com/jschaf/pggen/internal/texts"
 	"github.com/stretchr/testify/assert"
@@ -76,7 +75,7 @@ func TestFetchColumns(t *testing.T) {
 	}
 }
 
-func findTableOID(t *testing.T, conn *pgx.Conn, table string) pgtype.OID {
+func findTableOID(t *testing.T, conn *pgx.Conn, table string) uint32 {
 	sql := texts.Dedent(`
 		SELECT oid AS table_oid
 		FROM pg_class
@@ -87,7 +86,7 @@ func findTableOID(t *testing.T, conn *pgx.Conn, table string) pgtype.OID {
 	ctx, cancel := context.WithTimeout(t.Context(), 3*time.Second)
 	defer cancel()
 	row := conn.QueryRow(ctx, sql, table)
-	var oid pgtype.OID = 0
+	var oid uint32 = 0
 	if err := row.Scan(&oid); err != nil && !errors.Is(err, pgx.ErrNoRows) {
 		t.Fatal(err)
 	}

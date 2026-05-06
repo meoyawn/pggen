@@ -7,7 +7,7 @@ import (
 	"github.com/jschaf/pggen/internal/ptrs"
 	"github.com/stretchr/testify/require"
 
-	"github.com/jackc/pgx/v4"
+	"github.com/jackc/pgx/v5"
 	"github.com/jschaf/pggen/internal/pgtest"
 	"github.com/stretchr/testify/assert"
 )
@@ -58,6 +58,25 @@ func TestNewQuerier_FindAuthors(t *testing.T) {
 				FirstName: "john",
 				LastName:  "adams",
 				Suffix:    nil,
+			},
+		}
+		assert.Equal(t, want, authors)
+	})
+
+	t.Run("FindAuthors - 1 row suffix - bill", func(t *testing.T) {
+		insRow, err := q.InsertAuthorSuffix(t.Context(), InsertAuthorSuffixParams{
+			FirstName: "bill",
+			LastName:  "clinton",
+			Suffix:    "jr",
+		})
+		authors, err := q.FindAuthors(t.Context(), "bill")
+		require.NoError(t, err)
+		want := []FindAuthorsRow{
+			{
+				AuthorID:  insRow.AuthorID,
+				FirstName: "bill",
+				LastName:  "clinton",
+				Suffix:    ptrs.String("jr"),
 			},
 		}
 		assert.Equal(t, want, authors)

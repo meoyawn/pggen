@@ -4,7 +4,7 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
-	"github.com/jackc/pgtype"
+	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jschaf/pggen/internal/casing"
 	"github.com/jschaf/pggen/internal/codegen/golang/gotype"
 	"github.com/jschaf/pggen/internal/difftest"
@@ -89,7 +89,7 @@ func TestTypeResolver_Resolve(t *testing.T) {
 			pgType:   pg.BaseType{Name: "point", ID: pgtype.PointOID},
 			nullable: false,
 			want: &gotype.ImportType{
-				PkgPath: "github.com/jackc/pgtype",
+				PkgPath: "github.com/jackc/pgx/v5/pgtype",
 				Type: &gotype.OpaqueType{
 					PgType: pg.BaseType{Name: "point", ID: pgtype.PointOID},
 					Name:   "Point",
@@ -101,7 +101,7 @@ func TestTypeResolver_Resolve(t *testing.T) {
 			pgType:   pg.BaseType{Name: "point", ID: pgtype.PointOID},
 			nullable: true,
 			want: &gotype.ImportType{
-				PkgPath: "github.com/jackc/pgtype",
+				PkgPath: "github.com/jackc/pgx/v5/pgtype",
 				Type: &gotype.OpaqueType{
 					PgType: pg.BaseType{Name: "point", ID: pgtype.PointOID},
 					Name:   "Point",
