@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
-	"github.com/jschaf/pggen/example/custom_types/mytype"
+	"github.com/meoyawn/pggen/example/custom_types/mytype"
 )
 
 type QueryName struct{}

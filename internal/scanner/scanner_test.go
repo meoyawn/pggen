@@ -4,7 +4,7 @@ import (
 	gotok "go/token"
 	"testing"
 
-	"github.com/jschaf/pggen/internal/token"
+	"github.com/meoyawn/pggen/internal/token"
 	"github.com/stretchr/testify/assert"
 )
 

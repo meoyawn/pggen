@@ -5,9 +5,9 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/jschaf/pggen/internal/ast"
-	"github.com/jschaf/pggen/internal/codegen/golang/gotype"
-	"github.com/jschaf/pggen/internal/pginfer"
+	"github.com/meoyawn/pggen/internal/ast"
+	"github.com/meoyawn/pggen/internal/codegen/golang/gotype"
+	"github.com/meoyawn/pggen/internal/pginfer"
 )
 
 // TemplatedPackage is all templated files in a pggen invocation. The templated

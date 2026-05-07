@@ -4,8 +4,8 @@ import (
 	"strings"
 	"unicode"
 
-	"github.com/jschaf/pggen/internal/ast"
-	"github.com/jschaf/pggen/internal/pg"
+	"github.com/meoyawn/pggen/internal/ast"
+	"github.com/meoyawn/pggen/internal/pg"
 )
 
 // isColNullable tries to prove the column is not nullable. Strive for

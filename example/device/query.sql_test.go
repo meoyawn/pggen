@@ -4,7 +4,7 @@ import (
 	"net"
 	"testing"
 
-	"github.com/jschaf/pggen/internal/pgtest"
+	"github.com/meoyawn/pggen/internal/pgtest"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

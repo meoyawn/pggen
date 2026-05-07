@@ -3,7 +3,7 @@ package pg
 import (
 	"strconv"
 
-	"github.com/jschaf/pggen/internal/pg/pgoid"
+	"github.com/meoyawn/pggen/internal/pg/pgoid"
 )
 
 // Type is a Postgres type.

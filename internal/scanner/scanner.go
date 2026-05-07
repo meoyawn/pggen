@@ -7,7 +7,7 @@ import (
 	"unicode"
 	"unicode/utf8"
 
-	"github.com/jschaf/pggen/internal/token"
+	"github.com/meoyawn/pggen/internal/token"
 )
 
 const (

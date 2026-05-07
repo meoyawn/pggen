@@ -9,8 +9,8 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
-	"github.com/jschaf/pggen/internal/ast"
-	"github.com/jschaf/pggen/internal/pg"
+	"github.com/meoyawn/pggen/internal/ast"
+	"github.com/meoyawn/pggen/internal/pg"
 )
 
 const defaultTimeout = 3 * time.Second

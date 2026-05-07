@@ -4,7 +4,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/jschaf/pggen/internal/codegen/golang/gotype"
+	"github.com/meoyawn/pggen/internal/codegen/golang/gotype"
 )
 
 // Declarer is implemented by any value that needs to declare types, data, or

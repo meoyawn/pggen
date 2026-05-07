@@ -5,9 +5,9 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/jschaf/pggen/internal/casing"
-	"github.com/jschaf/pggen/internal/codegen/golang/gotype"
-	"github.com/jschaf/pggen/internal/pg"
+	"github.com/meoyawn/pggen/internal/casing"
+	"github.com/meoyawn/pggen/internal/codegen/golang/gotype"
+	"github.com/meoyawn/pggen/internal/pg"
 )
 
 // TypeResolver handles the mapping between Postgres and Go types.

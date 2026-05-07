@@ -4,9 +4,9 @@ import (
 	"testing"
 
 	"github.com/jackc/pgx/v5/pgtype"
-	"github.com/jschaf/pggen/example/custom_types/mytype"
-	"github.com/jschaf/pggen/internal/pgtest"
-	"github.com/jschaf/pggen/internal/texts"
+	"github.com/meoyawn/pggen/example/custom_types/mytype"
+	"github.com/meoyawn/pggen/internal/pgtest"
+	"github.com/meoyawn/pggen/internal/texts"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

@@ -3,11 +3,11 @@ package function
 import (
 	"testing"
 
-	"github.com/jschaf/pggen/internal/difftest"
-	"github.com/jschaf/pggen/internal/ptrs"
+	"github.com/meoyawn/pggen/internal/difftest"
+	"github.com/meoyawn/pggen/internal/ptrs"
 	"github.com/stretchr/testify/require"
 
-	"github.com/jschaf/pggen/internal/pgtest"
+	"github.com/meoyawn/pggen/internal/pgtest"
 )
 
 func TestNewQuerier_OutParams(t *testing.T) {

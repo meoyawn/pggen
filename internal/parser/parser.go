@@ -8,9 +8,9 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/jschaf/pggen/internal/ast"
-	"github.com/jschaf/pggen/internal/scanner"
-	"github.com/jschaf/pggen/internal/token"
+	"github.com/meoyawn/pggen/internal/ast"
+	"github.com/meoyawn/pggen/internal/scanner"
+	"github.com/meoyawn/pggen/internal/token"
 )
 
 type parser struct {

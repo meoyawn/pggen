@@ -4,7 +4,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/jschaf/pggen/internal/codegen/golang/gotype"
+	"github.com/meoyawn/pggen/internal/codegen/golang/gotype"
 )
 
 // NameCompositeTranscoderFunc returns the legacy composite helper name.

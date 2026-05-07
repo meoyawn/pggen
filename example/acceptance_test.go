@@ -8,8 +8,8 @@ import (
 	"flag"
 	"fmt"
 	"github.com/jackc/pgx/v5"
-	"github.com/jschaf/pggen/internal/errs"
-	"github.com/jschaf/pggen/internal/pgdocker"
+	"github.com/meoyawn/pggen/internal/errs"
+	"github.com/meoyawn/pggen/internal/pgdocker"
 	"math/rand"
 	"os"
 	"os/exec"
@@ -195,8 +195,8 @@ func TestExamples(t *testing.T) {
 			args: []string{
 				"--schema-glob", "example/custom_types/schema.sql",
 				"--query-glob", "example/custom_types/query.sql",
-				"--go-type", "text=github.com/jschaf/pggen/example/custom_types/mytype.String",
-				"--go-type", "int8=github.com/jschaf/pggen/example/custom_types.CustomInt",
+				"--go-type", "text=github.com/meoyawn/pggen/example/custom_types/mytype.String",
+				"--go-type", "int8=github.com/meoyawn/pggen/example/custom_types.CustomInt",
 				"--go-type", "my_int=int",
 				"--go-type", "_my_int=[]int",
 			},

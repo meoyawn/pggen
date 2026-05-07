@@ -7,8 +7,8 @@ import (
 	"sort"
 	"text/template"
 
-	"github.com/jschaf/pggen/internal/casing"
-	"github.com/jschaf/pggen/internal/codegen"
+	"github.com/meoyawn/pggen/internal/casing"
+	"github.com/meoyawn/pggen/internal/codegen"
 )
 
 // GenerateOptions are options to control generated Go output.

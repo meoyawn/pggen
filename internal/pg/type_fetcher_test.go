@@ -6,9 +6,9 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
-	"github.com/jschaf/pggen/internal/pg/pgoid"
-	"github.com/jschaf/pggen/internal/pgtest"
-	"github.com/jschaf/pggen/internal/texts"
+	"github.com/meoyawn/pggen/internal/pg/pgoid"
+	"github.com/meoyawn/pggen/internal/pgtest"
+	"github.com/meoyawn/pggen/internal/texts"
 )
 
 func TestNewTypeFetcher(t *testing.T) {

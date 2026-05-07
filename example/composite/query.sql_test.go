@@ -5,9 +5,9 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
-	"github.com/jschaf/pggen/internal/difftest"
-	"github.com/jschaf/pggen/internal/pgtest"
-	"github.com/jschaf/pggen/internal/ptrs"
+	"github.com/meoyawn/pggen/internal/difftest"
+	"github.com/meoyawn/pggen/internal/pgtest"
+	"github.com/meoyawn/pggen/internal/ptrs"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

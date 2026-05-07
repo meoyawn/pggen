@@ -11,13 +11,13 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
-	"github.com/jschaf/pggen/internal/ast"
-	"github.com/jschaf/pggen/internal/codegen"
-	"github.com/jschaf/pggen/internal/codegen/golang"
-	"github.com/jschaf/pggen/internal/errs"
-	"github.com/jschaf/pggen/internal/parser"
-	"github.com/jschaf/pggen/internal/pgdocker"
-	"github.com/jschaf/pggen/internal/pginfer"
+	"github.com/meoyawn/pggen/internal/ast"
+	"github.com/meoyawn/pggen/internal/codegen"
+	"github.com/meoyawn/pggen/internal/codegen/golang"
+	"github.com/meoyawn/pggen/internal/errs"
+	"github.com/meoyawn/pggen/internal/parser"
+	"github.com/meoyawn/pggen/internal/pgdocker"
+	"github.com/meoyawn/pggen/internal/pginfer"
 )
 
 // Lang is a supported codegen language.

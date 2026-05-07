@@ -5,8 +5,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/jschaf/pggen"
-	"github.com/jschaf/pggen/internal/pgtest"
+	"github.com/meoyawn/pggen"
+	"github.com/meoyawn/pggen/internal/pgtest"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -24,8 +24,8 @@ func TestGenerate_Go_Example_CustomTypes(t *testing.T) {
 			Language:         pggen.LangGo,
 			InlineParamCount: 2,
 			TypeOverrides: map[string]string{
-				"text":    "github.com/jschaf/pggen/example/custom_types/mytype.String",
-				"int8":    "github.com/jschaf/pggen/example/custom_types.CustomInt",
+				"text":    "github.com/meoyawn/pggen/example/custom_types/mytype.String",
+				"int8":    "github.com/meoyawn/pggen/example/custom_types.CustomInt",
 				"my_int":  "int",
 				"_my_int": "[]int",
 			},

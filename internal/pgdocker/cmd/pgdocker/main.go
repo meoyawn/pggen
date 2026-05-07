@@ -11,8 +11,8 @@ import (
 	"os/exec"
 	"time"
 
-	"github.com/jschaf/pggen/internal/errs"
-	"github.com/jschaf/pggen/internal/pgdocker"
+	"github.com/meoyawn/pggen/internal/errs"
+	"github.com/meoyawn/pggen/internal/pgdocker"
 )
 
 func main() {

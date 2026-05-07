@@ -22,8 +22,8 @@ import (
 	dockerClient "github.com/docker/docker/client"
 	"github.com/docker/go-connections/nat"
 	"github.com/jackc/pgx/v5"
-	"github.com/jschaf/pggen/internal/errs"
-	"github.com/jschaf/pggen/internal/ports"
+	"github.com/meoyawn/pggen/internal/errs"
+	"github.com/meoyawn/pggen/internal/ports"
 )
 
 // Client is a client to control the running Postgres Docker container.

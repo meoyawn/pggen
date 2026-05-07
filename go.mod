@@ -1,4 +1,4 @@
-module github.com/jschaf/pggen
+module github.com/meoyawn/pggen
 
 go 1.24.1
 

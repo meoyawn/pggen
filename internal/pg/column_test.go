@@ -8,8 +8,8 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/jackc/pgx/v5"
-	"github.com/jschaf/pggen/internal/pgtest"
-	"github.com/jschaf/pggen/internal/texts"
+	"github.com/meoyawn/pggen/internal/pgtest"
+	"github.com/meoyawn/pggen/internal/texts"
 	"github.com/stretchr/testify/assert"
 )
 

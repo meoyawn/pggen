@@ -8,7 +8,7 @@ import (
 	"io"
 	"os"
 
-	"github.com/jschaf/pggen/internal/ast"
+	"github.com/meoyawn/pggen/internal/ast"
 )
 
 // If src != nil, readSource converts src to a []byte if possible; otherwise it

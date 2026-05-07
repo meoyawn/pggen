@@ -2,7 +2,7 @@ package pg
 
 import (
 	"github.com/jackc/pgx/v5/pgtype"
-	"github.com/jschaf/pggen/internal/pg/pgoid"
+	"github.com/meoyawn/pggen/internal/pg/pgoid"
 )
 
 // If you add to this list, also add to defaultKnownTypes below.

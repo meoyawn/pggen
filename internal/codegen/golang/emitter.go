@@ -7,7 +7,7 @@ import (
 	"strconv"
 	"text/template"
 
-	"github.com/jschaf/pggen/internal/errs"
+	"github.com/meoyawn/pggen/internal/errs"
 )
 
 // Emitter writes a templated query file to a file.

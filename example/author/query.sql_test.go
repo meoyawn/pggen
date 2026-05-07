@@ -4,11 +4,11 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/jschaf/pggen/internal/ptrs"
+	"github.com/meoyawn/pggen/internal/ptrs"
 	"github.com/stretchr/testify/require"
 
 	"github.com/jackc/pgx/v5"
-	"github.com/jschaf/pggen/internal/pgtest"
+	"github.com/meoyawn/pggen/internal/pgtest"
 	"github.com/stretchr/testify/assert"
 )
 

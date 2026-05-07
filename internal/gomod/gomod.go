@@ -8,7 +8,7 @@ import (
 	"path/filepath"
 	"sync"
 
-	"github.com/jschaf/pggen/internal/paths"
+	"github.com/meoyawn/pggen/internal/paths"
 	"golang.org/x/mod/modfile"
 )
 

@@ -27,7 +27,7 @@ type Querier interface {
 	// Select many rows of device_type enum values with multiple output columns.
 	FindManyDeviceArrayWithNum(ctx context.Context) ([]FindManyDeviceArrayWithNumRow, error)
 
-	// Regression test for https://github.com/jschaf/pggen/issues/23.
+	// Regression test for https://github.com/meoyawn/pggen/issues/23.
 	EnumInsideComposite(ctx context.Context) (Device, error)
 }
 

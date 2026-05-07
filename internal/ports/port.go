@@ -3,7 +3,7 @@ package ports
 import (
 	"net"
 
-	"github.com/jschaf/pggen/internal/errs"
+	"github.com/meoyawn/pggen/internal/errs"
 )
 
 // Port is a port.

@@ -4,8 +4,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/jschaf/pggen/internal/difftest"
-	"github.com/jschaf/pggen/internal/pgtest"
+	"github.com/meoyawn/pggen/internal/difftest"
+	"github.com/meoyawn/pggen/internal/pgtest"
 	"github.com/stretchr/testify/require"
 )
 

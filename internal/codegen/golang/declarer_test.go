@@ -5,10 +5,10 @@ import (
 	"os"
 	"testing"
 
-	"github.com/jschaf/pggen/internal/casing"
-	"github.com/jschaf/pggen/internal/codegen/golang/gotype"
-	"github.com/jschaf/pggen/internal/difftest"
-	"github.com/jschaf/pggen/internal/pg"
+	"github.com/meoyawn/pggen/internal/casing"
+	"github.com/meoyawn/pggen/internal/codegen/golang/gotype"
+	"github.com/meoyawn/pggen/internal/difftest"
+	"github.com/meoyawn/pggen/internal/pg"
 	"github.com/stretchr/testify/require"
 )
 

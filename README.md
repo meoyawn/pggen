@@ -1,6 +1,6 @@
-[![Test](https://github.com/jschaf/pggen/workflows/Test/badge.svg)](https://github.com/jschaf/pggen/actions?query=workflow%3ATest) 
-[![Lint](https://github.com/jschaf/pggen/workflows/Lint/badge.svg)](https://github.com/jschaf/pggen/actions?query=workflow%3ALint) 
-[![GoReportCard](https://goreportcard.com/badge/github.com/jschaf/pggen)](https://goreportcard.com/report/github.com/jschaf/pggen)
+[![Test](https://github.com/meoyawn/pggen/workflows/Test/badge.svg)](https://github.com/meoyawn/pggen/actions?query=workflow%3ATest)
+[![Lint](https://github.com/meoyawn/pggen/workflows/Lint/badge.svg)](https://github.com/meoyawn/pggen/actions?query=workflow%3ALint)
+[![GoReportCard](https://goreportcard.com/badge/github.com/meoyawn/pggen)](https://goreportcard.com/report/github.com/meoyawn/pggen)
 
 # pggen - generate type safe Go methods from Postgres SQL queries
 
@@ -151,13 +151,13 @@ is far more revealing than the pitch.
 Precompiled binaries from the latest release. Change `~/bin` if you want to
 install to a different directory. All assets are listed on the [releases] page.
 
-[releases]: https://github.com/jschaf/pggen/releases
+[releases]: https://github.com/meoyawn/pggen/releases
 
 -   MacOS Apple Silicon (arm64)
 
     ```shell
     mkdir -p ~/bin \
-      && curl --silent --show-error --location --fail 'https://github.com/jschaf/pggen/releases/latest/download/pggen-darwin-arm64.tar.xz' \
+      && curl --silent --show-error --location --fail 'https://github.com/meoyawn/pggen/releases/latest/download/pggen-darwin-arm64.tar.xz' \
       | tar -xJf - -C ~/bin/    
     ```
     
@@ -165,7 +165,7 @@ install to a different directory. All assets are listed on the [releases] page.
 
     ```shell
     mkdir -p ~/bin \
-      && curl --silent --show-error --location --fail 'https://github.com/jschaf/pggen/releases/latest/download/pggen-darwin-amd64.tar.xz' \
+      && curl --silent --show-error --location --fail 'https://github.com/meoyawn/pggen/releases/latest/download/pggen-darwin-amd64.tar.xz' \
       | tar -xJf - -C ~/bin/    
     ```
 
@@ -173,7 +173,7 @@ install to a different directory. All assets are listed on the [releases] page.
 
     ```shell
     mkdir -p ~/bin \
-      && curl --silent --show-error --location --fail 'https://github.com/jschaf/pggen/releases/latest/download/pggen-linux-amd64.tar.xz' \
+      && curl --silent --show-error --location --fail 'https://github.com/meoyawn/pggen/releases/latest/download/pggen-linux-amd64.tar.xz' \
       | tar -xJf - -C ~/bin/    
     ```
     
@@ -181,7 +181,7 @@ install to a different directory. All assets are listed on the [releases] page.
 
     ```shell
     mkdir -p ~/bin \
-      && curl --silent --show-error --location --fail 'https://github.com/jschaf/pggen/releases/latest/download/pggen-windows-amd64.tar.xz' \
+      && curl --silent --show-error --location --fail 'https://github.com/meoyawn/pggen/releases/latest/download/pggen-windows-amd64.tar.xz' \
       | tar -xJf - -C ~/bin/    
     ```
 
@@ -196,7 +196,7 @@ pggen gen go --help
 Requires Go 1.16 because pggen uses `go:embed`. Installs to `$GOPATH/bin`.
 
 ```shell
-go install github.com/jschaf/pggen/cmd/pggen@latest
+go install github.com/meoyawn/pggen/cmd/pggen@latest
 ```
     
 Make sure pggen works:
@@ -361,8 +361,8 @@ Examples embedded in the repo:
         --go-type 'int8=*int' \
         --go-type 'int4=int' \
         --go-type '_int4=[]int' \
-        --go-type 'text=*github.com/jschaf/pggen/mytype.String' \
-        --go-type '_text=[]*github.com/jschaf/pggen/mytype.String'
+        --go-type 'text=*github.com/meoyawn/pggen/mytype.String' \
+        --go-type '_text=[]*github.com/meoyawn/pggen/mytype.String'
     ```
     
     pggen only changes the generated Go signatures and scan destinations. pgx

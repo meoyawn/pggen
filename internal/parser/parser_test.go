@@ -6,7 +6,7 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
-	"github.com/jschaf/pggen/internal/ast"
+	"github.com/meoyawn/pggen/internal/ast"
 )
 
 func ignoreCommentPos() cmp.Option {
