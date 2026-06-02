@@ -96,9 +96,9 @@ type FindUserRow struct {
 	Pass  string `json:"pass" db:"pass"`
 }
 
-func (r FindUserRow) GetEmail() string { return r.Email }
+func (r *FindUserRow) GetEmail() string { return r.Email }
 
-func (r FindUserRow) GetPass() string { return r.Pass }
+func (r *FindUserRow) GetPass() string { return r.Pass }
 
 // FindUser implements Querier.FindUser.
 func (q *DBQuerier) FindUser(ctx context.Context, email string) (FindUserRow, error) {

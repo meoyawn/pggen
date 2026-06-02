@@ -163,9 +163,9 @@ type FindLtreeInputRow struct {
 	TextArr pgtype.Array[pgtype.Text] `json:"text_arr" db:"text_arr"`
 }
 
-func (r FindLtreeInputRow) GetLtree() pgtype.Text { return r.Ltree }
+func (r *FindLtreeInputRow) GetLtree() pgtype.Text { return r.Ltree }
 
-func (r FindLtreeInputRow) GetTextArr() pgtype.Array[pgtype.Text] { return r.TextArr }
+func (r *FindLtreeInputRow) GetTextArr() pgtype.Array[pgtype.Text] { return r.TextArr }
 
 // FindLtreeInput implements Querier.FindLtreeInput.
 func (q *DBQuerier) FindLtreeInput(ctx context.Context, inLtree pgtype.Text, inLtreeArray []string) (FindLtreeInputRow, error) {

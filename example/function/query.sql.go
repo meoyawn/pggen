@@ -98,9 +98,9 @@ type OutParamsRow struct {
 	Stats ListStats  `json:"_stats" db:"_stats"`
 }
 
-func (r OutParamsRow) GetItems() []ListItem { return r.Items }
+func (r *OutParamsRow) GetItems() []ListItem { return r.Items }
 
-func (r OutParamsRow) GetStats() ListStats { return r.Stats }
+func (r *OutParamsRow) GetStats() ListStats { return r.Stats }
 
 // OutParams implements Querier.OutParams.
 func (q *DBQuerier) OutParams(ctx context.Context) ([]OutParamsRow, error) {

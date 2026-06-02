@@ -122,9 +122,9 @@ type FindAllDevicesRow struct {
 	Type DeviceType       `json:"type" db:"type"`
 }
 
-func (r FindAllDevicesRow) GetMac() net.HardwareAddr { return r.Mac }
+func (r *FindAllDevicesRow) GetMac() net.HardwareAddr { return r.Mac }
 
-func (r FindAllDevicesRow) GetType() DeviceType { return r.Type }
+func (r *FindAllDevicesRow) GetType() DeviceType { return r.Type }
 
 // FindAllDevices implements Querier.FindAllDevices.
 func (q *DBQuerier) FindAllDevices(ctx context.Context) ([]FindAllDevicesRow, error) {
@@ -210,9 +210,9 @@ type FindManyDeviceArrayWithNumRow struct {
 	DeviceTypes []DeviceType `json:"device_types" db:"device_types"`
 }
 
-func (r FindManyDeviceArrayWithNumRow) GetNum() *int32 { return r.Num }
+func (r *FindManyDeviceArrayWithNumRow) GetNum() *int32 { return r.Num }
 
-func (r FindManyDeviceArrayWithNumRow) GetDeviceTypes() []DeviceType { return r.DeviceTypes }
+func (r *FindManyDeviceArrayWithNumRow) GetDeviceTypes() []DeviceType { return r.DeviceTypes }
 
 // FindManyDeviceArrayWithNum implements Querier.FindManyDeviceArrayWithNum.
 func (q *DBQuerier) FindManyDeviceArrayWithNum(ctx context.Context) ([]FindManyDeviceArrayWithNumRow, error) {

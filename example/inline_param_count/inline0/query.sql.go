@@ -117,13 +117,13 @@ type FindAuthorByIDRow struct {
 	Suffix    *string `json:"suffix" db:"suffix"`
 }
 
-func (r FindAuthorByIDRow) GetAuthorID() int32 { return r.AuthorID }
+func (r *FindAuthorByIDRow) GetAuthorID() int32 { return r.AuthorID }
 
-func (r FindAuthorByIDRow) GetFirstName() string { return r.FirstName }
+func (r *FindAuthorByIDRow) GetFirstName() string { return r.FirstName }
 
-func (r FindAuthorByIDRow) GetLastName() string { return r.LastName }
+func (r *FindAuthorByIDRow) GetLastName() string { return r.LastName }
 
-func (r FindAuthorByIDRow) GetSuffix() *string { return r.Suffix }
+func (r *FindAuthorByIDRow) GetSuffix() *string { return r.Suffix }
 
 // FindAuthorByID implements Querier.FindAuthorByID.
 func (q *DBQuerier) FindAuthorByID(ctx context.Context, params FindAuthorByIDParams) (FindAuthorByIDRow, error) {

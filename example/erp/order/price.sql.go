@@ -25,13 +25,13 @@ type FindOrdersByPriceRow struct {
 	CustomerID *int32             `json:"customer_id" db:"customer_id"`
 }
 
-func (r FindOrdersByPriceRow) GetOrderID() int32 { return r.OrderID }
+func (r *FindOrdersByPriceRow) GetOrderID() int32 { return r.OrderID }
 
-func (r FindOrdersByPriceRow) GetOrderDate() pgtype.Timestamptz { return r.OrderDate }
+func (r *FindOrdersByPriceRow) GetOrderDate() pgtype.Timestamptz { return r.OrderDate }
 
-func (r FindOrdersByPriceRow) GetOrderTotal() pgtype.Numeric { return r.OrderTotal }
+func (r *FindOrdersByPriceRow) GetOrderTotal() pgtype.Numeric { return r.OrderTotal }
 
-func (r FindOrdersByPriceRow) GetCustomerID() *int32 { return r.CustomerID }
+func (r *FindOrdersByPriceRow) GetCustomerID() *int32 { return r.CustomerID }
 
 // FindOrdersByPrice implements Querier.FindOrdersByPrice.
 func (q *DBQuerier) FindOrdersByPrice(ctx context.Context, minTotal pgtype.Numeric) ([]FindOrdersByPriceRow, error) {
@@ -64,9 +64,9 @@ type FindOrdersMRRRow struct {
 	OrderMRR pgtype.Numeric     `json:"order_mrr" db:"order_mrr"`
 }
 
-func (r FindOrdersMRRRow) GetMonth() pgtype.Timestamptz { return r.Month }
+func (r *FindOrdersMRRRow) GetMonth() pgtype.Timestamptz { return r.Month }
 
-func (r FindOrdersMRRRow) GetOrderMRR() pgtype.Numeric { return r.OrderMRR }
+func (r *FindOrdersMRRRow) GetOrderMRR() pgtype.Numeric { return r.OrderMRR }
 
 // FindOrdersMRR implements Querier.FindOrdersMRR.
 func (q *DBQuerier) FindOrdersMRR(ctx context.Context) ([]FindOrdersMRRRow, error) {

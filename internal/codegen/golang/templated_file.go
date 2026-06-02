@@ -574,7 +574,7 @@ func (tq TemplatedQuery) EmitRowGetterMethods() string {
 	}
 	sb := &strings.Builder{}
 	for _, out := range tq.Outputs {
-		sb.WriteString("\n\nfunc (r ")
+		sb.WriteString("\n\nfunc (r *")
 		sb.WriteString(tq.Name)
 		sb.WriteString("Row) ")
 		sb.WriteString(out.GetterName)

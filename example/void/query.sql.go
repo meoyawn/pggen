@@ -137,9 +137,9 @@ type VoidThreeRow struct {
 	Bar string `json:"bar" db:"bar"`
 }
 
-func (r VoidThreeRow) GetFoo() string { return r.Foo }
+func (r *VoidThreeRow) GetFoo() string { return r.Foo }
 
-func (r VoidThreeRow) GetBar() string { return r.Bar }
+func (r *VoidThreeRow) GetBar() string { return r.Bar }
 
 // VoidThree implements Querier.VoidThree.
 func (q *DBQuerier) VoidThree(ctx context.Context) (VoidThreeRow, error) {

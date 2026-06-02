@@ -124,11 +124,11 @@ type FindDevicesByUserRow struct {
 	MacAddrs []net.HardwareAddr `json:"mac_addrs" db:"mac_addrs"`
 }
 
-func (r FindDevicesByUserRow) GetID() int { return r.ID }
+func (r *FindDevicesByUserRow) GetID() int { return r.ID }
 
-func (r FindDevicesByUserRow) GetName() string { return r.Name }
+func (r *FindDevicesByUserRow) GetName() string { return r.Name }
 
-func (r FindDevicesByUserRow) GetMacAddrs() []net.HardwareAddr { return r.MacAddrs }
+func (r *FindDevicesByUserRow) GetMacAddrs() []net.HardwareAddr { return r.MacAddrs }
 
 // FindDevicesByUser implements Querier.FindDevicesByUser.
 func (q *DBQuerier) FindDevicesByUser(ctx context.Context, id int) ([]FindDevicesByUserRow, error) {
@@ -166,11 +166,11 @@ type CompositeUserRow struct {
 	User User             `json:"user" db:"user"`
 }
 
-func (r CompositeUserRow) GetMac() net.HardwareAddr { return r.Mac }
+func (r *CompositeUserRow) GetMac() net.HardwareAddr { return r.Mac }
 
-func (r CompositeUserRow) GetType() DeviceType { return r.Type }
+func (r *CompositeUserRow) GetType() DeviceType { return r.Type }
 
-func (r CompositeUserRow) GetUser() User { return r.User }
+func (r *CompositeUserRow) GetUser() User { return r.User }
 
 // CompositeUser implements Querier.CompositeUser.
 func (q *DBQuerier) CompositeUser(ctx context.Context) ([]CompositeUserRow, error) {
@@ -220,9 +220,9 @@ type CompositeUserOneTwoColsRow struct {
 	User User  `json:"user" db:"user"`
 }
 
-func (r CompositeUserOneTwoColsRow) GetNum() int32 { return r.Num }
+func (r *CompositeUserOneTwoColsRow) GetNum() int32 { return r.Num }
 
-func (r CompositeUserOneTwoColsRow) GetUser() User { return r.User }
+func (r *CompositeUserOneTwoColsRow) GetUser() User { return r.User }
 
 // CompositeUserOneTwoCols implements Querier.CompositeUserOneTwoCols.
 func (q *DBQuerier) CompositeUserOneTwoCols(ctx context.Context) (CompositeUserOneTwoColsRow, error) {

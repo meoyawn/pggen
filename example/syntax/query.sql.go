@@ -213,9 +213,9 @@ type IllegalNameSymbolsRow struct {
 	FooBar         string `json:"foo.bar!@#$%&*()\"--+" db:"foo.bar!@#$%&*()\"--+"`
 }
 
-func (r IllegalNameSymbolsRow) GetUnnamedColumn0() string { return r.UnnamedColumn0 }
+func (r *IllegalNameSymbolsRow) GetUnnamedColumn0() string { return r.UnnamedColumn0 }
 
-func (r IllegalNameSymbolsRow) GetFooBar() string { return r.FooBar }
+func (r *IllegalNameSymbolsRow) GetFooBar() string { return r.FooBar }
 
 // IllegalNameSymbols implements Querier.IllegalNameSymbols.
 func (q *DBQuerier) IllegalNameSymbols(ctx context.Context, helloWorld string) (IllegalNameSymbolsRow, error) {

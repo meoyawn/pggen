@@ -149,19 +149,19 @@ type FindEnumTypesRow struct {
 	DefaultExpr string    `json:"default_expr" db:"default_expr"`
 }
 
-func (r FindEnumTypesRow) GetOID() uint32 { return r.OID }
+func (r *FindEnumTypesRow) GetOID() uint32 { return r.OID }
 
-func (r FindEnumTypesRow) GetTypeName() string { return r.TypeName }
+func (r *FindEnumTypesRow) GetTypeName() string { return r.TypeName }
 
-func (r FindEnumTypesRow) GetChildOIDs() []int { return r.ChildOIDs }
+func (r *FindEnumTypesRow) GetChildOIDs() []int { return r.ChildOIDs }
 
-func (r FindEnumTypesRow) GetOrders() []float32 { return r.Orders }
+func (r *FindEnumTypesRow) GetOrders() []float32 { return r.Orders }
 
-func (r FindEnumTypesRow) GetLabels() []string { return r.Labels }
+func (r *FindEnumTypesRow) GetLabels() []string { return r.Labels }
 
-func (r FindEnumTypesRow) GetTypeKind() byte { return r.TypeKind }
+func (r *FindEnumTypesRow) GetTypeKind() byte { return r.TypeKind }
 
-func (r FindEnumTypesRow) GetDefaultExpr() string { return r.DefaultExpr }
+func (r *FindEnumTypesRow) GetDefaultExpr() string { return r.DefaultExpr }
 
 // FindEnumTypes implements Querier.FindEnumTypes.
 func (q *DBQuerier) FindEnumTypes(ctx context.Context, oids []uint32) ([]FindEnumTypesRow, error) {
@@ -223,13 +223,13 @@ type FindArrayTypesRow struct {
 	TypeKind byte   `json:"type_kind" db:"type_kind"`
 }
 
-func (r FindArrayTypesRow) GetOID() uint32 { return r.OID }
+func (r *FindArrayTypesRow) GetOID() uint32 { return r.OID }
 
-func (r FindArrayTypesRow) GetTypeName() string { return r.TypeName }
+func (r *FindArrayTypesRow) GetTypeName() string { return r.TypeName }
 
-func (r FindArrayTypesRow) GetElemOID() uint32 { return r.ElemOID }
+func (r *FindArrayTypesRow) GetElemOID() uint32 { return r.ElemOID }
 
-func (r FindArrayTypesRow) GetTypeKind() byte { return r.TypeKind }
+func (r *FindArrayTypesRow) GetTypeKind() byte { return r.TypeKind }
 
 // FindArrayTypes implements Querier.FindArrayTypes.
 func (q *DBQuerier) FindArrayTypes(ctx context.Context, oids []uint32) ([]FindArrayTypesRow, error) {
@@ -300,21 +300,21 @@ type FindCompositeTypesRow struct {
 	ColTypeNames  []string `json:"col_type_names" db:"col_type_names"`
 }
 
-func (r FindCompositeTypesRow) GetTableTypeName() string { return r.TableTypeName }
+func (r *FindCompositeTypesRow) GetTableTypeName() string { return r.TableTypeName }
 
-func (r FindCompositeTypesRow) GetTableTypeOID() uint32 { return r.TableTypeOID }
+func (r *FindCompositeTypesRow) GetTableTypeOID() uint32 { return r.TableTypeOID }
 
-func (r FindCompositeTypesRow) GetTableName() string { return r.TableName }
+func (r *FindCompositeTypesRow) GetTableName() string { return r.TableName }
 
-func (r FindCompositeTypesRow) GetColNames() []string { return r.ColNames }
+func (r *FindCompositeTypesRow) GetColNames() []string { return r.ColNames }
 
-func (r FindCompositeTypesRow) GetColOIDs() []int { return r.ColOIDs }
+func (r *FindCompositeTypesRow) GetColOIDs() []int { return r.ColOIDs }
 
-func (r FindCompositeTypesRow) GetColOrders() []int { return r.ColOrders }
+func (r *FindCompositeTypesRow) GetColOrders() []int { return r.ColOrders }
 
-func (r FindCompositeTypesRow) GetColNotNulls() []bool { return r.ColNotNulls }
+func (r *FindCompositeTypesRow) GetColNotNulls() []bool { return r.ColNotNulls }
 
-func (r FindCompositeTypesRow) GetColTypeNames() []string { return r.ColTypeNames }
+func (r *FindCompositeTypesRow) GetColTypeNames() []string { return r.ColTypeNames }
 
 // FindCompositeTypes implements Querier.FindCompositeTypes.
 func (q *DBQuerier) FindCompositeTypes(ctx context.Context, oids []uint32) ([]FindCompositeTypesRow, error) {
@@ -438,11 +438,11 @@ type FindOIDNamesRow struct {
 	Kind byte   `json:"kind" db:"kind"`
 }
 
-func (r FindOIDNamesRow) GetOID() uint32 { return r.OID }
+func (r *FindOIDNamesRow) GetOID() uint32 { return r.OID }
 
-func (r FindOIDNamesRow) GetName() string { return r.Name }
+func (r *FindOIDNamesRow) GetName() string { return r.Name }
 
-func (r FindOIDNamesRow) GetKind() byte { return r.Kind }
+func (r *FindOIDNamesRow) GetKind() byte { return r.Kind }
 
 // FindOIDNames implements Querier.FindOIDNames.
 func (q *DBQuerier) FindOIDNames(ctx context.Context, oid []uint32) ([]FindOIDNamesRow, error) {

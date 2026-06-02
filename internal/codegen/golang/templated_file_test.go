@@ -55,9 +55,9 @@ type FindAuthorsProjection interface {
 
 	assert.Equal(t, `
 
-func (r FindAuthorsRow) GetAuthorID() int { return r.AuthorID }
+func (r *FindAuthorsRow) GetAuthorID() int { return r.AuthorID }
 
-func (r FindAuthorsRow) GetName() string { return r.Name }`, query.EmitRowGetterMethods())
+func (r *FindAuthorsRow) GetName() string { return r.Name }`, query.EmitRowGetterMethods())
 }
 
 func TestTemplatedQuery_EmitProjectionSkipsSingleColumn(t *testing.T) {

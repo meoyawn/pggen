@@ -132,9 +132,9 @@ type SearchScreenshotsRow struct {
 	Blocks []Blocks `json:"blocks" db:"blocks"`
 }
 
-func (r SearchScreenshotsRow) GetID() int { return r.ID }
+func (r *SearchScreenshotsRow) GetID() int { return r.ID }
 
-func (r SearchScreenshotsRow) GetBlocks() []Blocks { return r.Blocks }
+func (r *SearchScreenshotsRow) GetBlocks() []Blocks { return r.Blocks }
 
 // SearchScreenshots implements Querier.SearchScreenshots.
 func (q *DBQuerier) SearchScreenshots(ctx context.Context, params SearchScreenshotsParams) ([]SearchScreenshotsRow, error) {
@@ -206,11 +206,11 @@ type InsertScreenshotBlocksRow struct {
 	Body         string `json:"body" db:"body"`
 }
 
-func (r InsertScreenshotBlocksRow) GetID() int { return r.ID }
+func (r *InsertScreenshotBlocksRow) GetID() int { return r.ID }
 
-func (r InsertScreenshotBlocksRow) GetScreenshotID() int { return r.ScreenshotID }
+func (r *InsertScreenshotBlocksRow) GetScreenshotID() int { return r.ScreenshotID }
 
-func (r InsertScreenshotBlocksRow) GetBody() string { return r.Body }
+func (r *InsertScreenshotBlocksRow) GetBody() string { return r.Body }
 
 // InsertScreenshotBlocks implements Querier.InsertScreenshotBlocks.
 func (q *DBQuerier) InsertScreenshotBlocks(ctx context.Context, screenshotID int, body string) (InsertScreenshotBlocksRow, error) {

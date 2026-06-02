@@ -97,11 +97,11 @@ type CreateTenantRow struct {
 	Name     string  `json:"name" db:"name"`
 }
 
-func (r CreateTenantRow) GetTenantID() int { return r.TenantID }
+func (r *CreateTenantRow) GetTenantID() int { return r.TenantID }
 
-func (r CreateTenantRow) GetRname() *string { return r.Rname }
+func (r *CreateTenantRow) GetRname() *string { return r.Rname }
 
-func (r CreateTenantRow) GetName() string { return r.Name }
+func (r *CreateTenantRow) GetName() string { return r.Name }
 
 // CreateTenant implements Querier.CreateTenant.
 func (q *DBQuerier) CreateTenant(ctx context.Context, key string, name string) (CreateTenantRow, error) {
@@ -138,13 +138,13 @@ type FindOrdersByCustomerRow struct {
 	CustomerID *int32             `json:"customer_id" db:"customer_id"`
 }
 
-func (r FindOrdersByCustomerRow) GetOrderID() int32 { return r.OrderID }
+func (r *FindOrdersByCustomerRow) GetOrderID() int32 { return r.OrderID }
 
-func (r FindOrdersByCustomerRow) GetOrderDate() pgtype.Timestamptz { return r.OrderDate }
+func (r *FindOrdersByCustomerRow) GetOrderDate() pgtype.Timestamptz { return r.OrderDate }
 
-func (r FindOrdersByCustomerRow) GetOrderTotal() pgtype.Numeric { return r.OrderTotal }
+func (r *FindOrdersByCustomerRow) GetOrderTotal() pgtype.Numeric { return r.OrderTotal }
 
-func (r FindOrdersByCustomerRow) GetCustomerID() *int32 { return r.CustomerID }
+func (r *FindOrdersByCustomerRow) GetCustomerID() *int32 { return r.CustomerID }
 
 // FindOrdersByCustomer implements Querier.FindOrdersByCustomer.
 func (q *DBQuerier) FindOrdersByCustomer(ctx context.Context, customerID int32) ([]FindOrdersByCustomerRow, error) {
@@ -181,11 +181,11 @@ type FindProductsInOrderRow struct {
 	Name      *string `json:"name" db:"name"`
 }
 
-func (r FindProductsInOrderRow) GetOrderID() *int32 { return r.OrderID }
+func (r *FindProductsInOrderRow) GetOrderID() *int32 { return r.OrderID }
 
-func (r FindProductsInOrderRow) GetProductID() *int32 { return r.ProductID }
+func (r *FindProductsInOrderRow) GetProductID() *int32 { return r.ProductID }
 
-func (r FindProductsInOrderRow) GetName() *string { return r.Name }
+func (r *FindProductsInOrderRow) GetName() *string { return r.Name }
 
 // FindProductsInOrder implements Querier.FindProductsInOrder.
 func (q *DBQuerier) FindProductsInOrder(ctx context.Context, orderID int32) ([]FindProductsInOrderRow, error) {
@@ -228,13 +228,13 @@ type InsertCustomerRow struct {
 	Email      string `json:"email" db:"email"`
 }
 
-func (r InsertCustomerRow) GetCustomerID() int32 { return r.CustomerID }
+func (r *InsertCustomerRow) GetCustomerID() int32 { return r.CustomerID }
 
-func (r InsertCustomerRow) GetFirstName() string { return r.FirstName }
+func (r *InsertCustomerRow) GetFirstName() string { return r.FirstName }
 
-func (r InsertCustomerRow) GetLastName() string { return r.LastName }
+func (r *InsertCustomerRow) GetLastName() string { return r.LastName }
 
-func (r InsertCustomerRow) GetEmail() string { return r.Email }
+func (r *InsertCustomerRow) GetEmail() string { return r.Email }
 
 // InsertCustomer implements Querier.InsertCustomer.
 func (q *DBQuerier) InsertCustomer(ctx context.Context, params InsertCustomerParams) (InsertCustomerRow, error) {
@@ -277,13 +277,13 @@ type InsertOrderRow struct {
 	CustomerID *int32             `json:"customer_id" db:"customer_id"`
 }
 
-func (r InsertOrderRow) GetOrderID() int32 { return r.OrderID }
+func (r *InsertOrderRow) GetOrderID() int32 { return r.OrderID }
 
-func (r InsertOrderRow) GetOrderDate() pgtype.Timestamptz { return r.OrderDate }
+func (r *InsertOrderRow) GetOrderDate() pgtype.Timestamptz { return r.OrderDate }
 
-func (r InsertOrderRow) GetOrderTotal() pgtype.Numeric { return r.OrderTotal }
+func (r *InsertOrderRow) GetOrderTotal() pgtype.Numeric { return r.OrderTotal }
 
-func (r InsertOrderRow) GetCustomerID() *int32 { return r.CustomerID }
+func (r *InsertOrderRow) GetCustomerID() *int32 { return r.CustomerID }
 
 // InsertOrder implements Querier.InsertOrder.
 func (q *DBQuerier) InsertOrder(ctx context.Context, params InsertOrderParams) (InsertOrderRow, error) {
