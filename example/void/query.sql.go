@@ -127,10 +127,19 @@ func (q *DBQuerier) VoidTwo(ctx context.Context) (string, error) {
 
 const voidThreeSQL = `SELECT void_fn(), 'foo' as foo, 'bar' as bar;`
 
+type VoidThreeProjection interface {
+	GetFoo() string
+	GetBar() string
+}
+
 type VoidThreeRow struct {
 	Foo string `json:"foo" db:"foo"`
 	Bar string `json:"bar" db:"bar"`
 }
+
+func (r VoidThreeRow) GetFoo() string { return r.Foo }
+
+func (r VoidThreeRow) GetBar() string { return r.Bar }
 
 // VoidThree implements Querier.VoidThree.
 func (q *DBQuerier) VoidThree(ctx context.Context) (VoidThreeRow, error) {

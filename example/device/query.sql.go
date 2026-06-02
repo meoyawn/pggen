@@ -112,11 +112,23 @@ const findDevicesByUserSQL = `SELECT
 FROM "user"
 WHERE id = $1;`
 
+type FindDevicesByUserProjection interface {
+	GetID() int
+	GetName() string
+	GetMacAddrs() []net.HardwareAddr
+}
+
 type FindDevicesByUserRow struct {
 	ID       int                `json:"id" db:"id"`
 	Name     string             `json:"name" db:"name"`
 	MacAddrs []net.HardwareAddr `json:"mac_addrs" db:"mac_addrs"`
 }
+
+func (r FindDevicesByUserRow) GetID() int { return r.ID }
+
+func (r FindDevicesByUserRow) GetName() string { return r.Name }
+
+func (r FindDevicesByUserRow) GetMacAddrs() []net.HardwareAddr { return r.MacAddrs }
 
 // FindDevicesByUser implements Querier.FindDevicesByUser.
 func (q *DBQuerier) FindDevicesByUser(ctx context.Context, id int) ([]FindDevicesByUserRow, error) {
@@ -142,11 +154,23 @@ const compositeUserSQL = `SELECT
 FROM device d
   LEFT JOIN "user" u ON u.id = d.owner;`
 
+type CompositeUserProjection interface {
+	GetMac() net.HardwareAddr
+	GetType() DeviceType
+	GetUser() User
+}
+
 type CompositeUserRow struct {
 	Mac  net.HardwareAddr `json:"mac" db:"mac"`
 	Type DeviceType       `json:"type" db:"type"`
 	User User             `json:"user" db:"user"`
 }
+
+func (r CompositeUserRow) GetMac() net.HardwareAddr { return r.Mac }
+
+func (r CompositeUserRow) GetType() DeviceType { return r.Type }
+
+func (r CompositeUserRow) GetUser() User { return r.User }
 
 // CompositeUser implements Querier.CompositeUser.
 func (q *DBQuerier) CompositeUser(ctx context.Context) ([]CompositeUserRow, error) {
@@ -186,10 +210,19 @@ func (q *DBQuerier) CompositeUserOne(ctx context.Context) (User, error) {
 
 const compositeUserOneTwoColsSQL = `SELECT 1 AS num, ROW (15, 'qux')::"user" AS "user";`
 
+type CompositeUserOneTwoColsProjection interface {
+	GetNum() int32
+	GetUser() User
+}
+
 type CompositeUserOneTwoColsRow struct {
 	Num  int32 `json:"num" db:"num"`
 	User User  `json:"user" db:"user"`
 }
+
+func (r CompositeUserOneTwoColsRow) GetNum() int32 { return r.Num }
+
+func (r CompositeUserOneTwoColsRow) GetUser() User { return r.User }
 
 // CompositeUserOneTwoCols implements Querier.CompositeUserOneTwoCols.
 func (q *DBQuerier) CompositeUserOneTwoCols(ctx context.Context) (CompositeUserOneTwoColsRow, error) {

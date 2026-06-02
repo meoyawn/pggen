@@ -88,10 +88,19 @@ var _ = addTypeToRegister("\"_list_item\"")
 
 const outParamsSQL = `SELECT * FROM out_params();`
 
+type OutParamsProjection interface {
+	GetItems() []ListItem
+	GetStats() ListStats
+}
+
 type OutParamsRow struct {
 	Items []ListItem `json:"_items" db:"_items"`
 	Stats ListStats  `json:"_stats" db:"_stats"`
 }
+
+func (r OutParamsRow) GetItems() []ListItem { return r.Items }
+
+func (r OutParamsRow) GetStats() ListStats { return r.Stats }
 
 // OutParams implements Querier.OutParams.
 func (q *DBQuerier) OutParams(ctx context.Context) ([]OutParamsRow, error) {

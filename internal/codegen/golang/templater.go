@@ -185,6 +185,7 @@ func (tm Templater) templateFile(file codegen.QueryFile, isLeader bool) (Templat
 		}
 
 		nonVoidCols := removeVoidColumns(outputs)
+		nonVoidCols = resolveProjectionGetterNames(nonVoidCols)
 		resultKind := query.ResultKind
 		if len(nonVoidCols) == 0 {
 			resultKind = ast.ResultKindExec
@@ -255,4 +256,29 @@ func removeVoidColumns(cols []TemplatedColumn) []TemplatedColumn {
 		outs = append(outs, col)
 	}
 	return outs
+}
+
+func resolveProjectionGetterNames(cols []TemplatedColumn) []TemplatedColumn {
+	used := make(map[string]struct{}, len(cols)*2)
+	for _, col := range cols {
+		used[col.UpperName] = struct{}{}
+	}
+	for i, col := range cols {
+		name := "Get" + col.UpperName
+		if _, ok := used[name]; ok {
+			base := name + "Value"
+			name = base
+			for suffix := 2; hasIdentifier(used, name); suffix++ {
+				name = base + strconv.Itoa(suffix)
+			}
+		}
+		cols[i].GetterName = name
+		used[name] = struct{}{}
+	}
+	return cols
+}
+
+func hasIdentifier(used map[string]struct{}, name string) bool {
+	_, ok := used[name]
+	return ok
 }

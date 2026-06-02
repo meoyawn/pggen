@@ -85,11 +85,23 @@ const createTenantSQL = `INSERT INTO tenant (tenant_id, name)
 VALUES (base36_decode($1::text)::tenant_id, $2::text)
 RETURNING *;`
 
+type CreateTenantProjection interface {
+	GetTenantID() int
+	GetRname() *string
+	GetName() string
+}
+
 type CreateTenantRow struct {
 	TenantID int     `json:"tenant_id" db:"tenant_id"`
 	Rname    *string `json:"rname" db:"rname"`
 	Name     string  `json:"name" db:"name"`
 }
+
+func (r CreateTenantRow) GetTenantID() int { return r.TenantID }
+
+func (r CreateTenantRow) GetRname() *string { return r.Rname }
+
+func (r CreateTenantRow) GetName() string { return r.Name }
 
 // CreateTenant implements Querier.CreateTenant.
 func (q *DBQuerier) CreateTenant(ctx context.Context, key string, name string) (CreateTenantRow, error) {
@@ -112,12 +124,27 @@ const findOrdersByCustomerSQL = `SELECT *
 FROM orders
 WHERE customer_id = $1;`
 
+type FindOrdersByCustomerProjection interface {
+	GetOrderID() int32
+	GetOrderDate() pgtype.Timestamptz
+	GetOrderTotal() pgtype.Numeric
+	GetCustomerID() *int32
+}
+
 type FindOrdersByCustomerRow struct {
 	OrderID    int32              `json:"order_id" db:"order_id"`
 	OrderDate  pgtype.Timestamptz `json:"order_date" db:"order_date"`
 	OrderTotal pgtype.Numeric     `json:"order_total" db:"order_total"`
 	CustomerID *int32             `json:"customer_id" db:"customer_id"`
 }
+
+func (r FindOrdersByCustomerRow) GetOrderID() int32 { return r.OrderID }
+
+func (r FindOrdersByCustomerRow) GetOrderDate() pgtype.Timestamptz { return r.OrderDate }
+
+func (r FindOrdersByCustomerRow) GetOrderTotal() pgtype.Numeric { return r.OrderTotal }
+
+func (r FindOrdersByCustomerRow) GetCustomerID() *int32 { return r.CustomerID }
 
 // FindOrdersByCustomer implements Querier.FindOrdersByCustomer.
 func (q *DBQuerier) FindOrdersByCustomer(ctx context.Context, customerID int32) ([]FindOrdersByCustomerRow, error) {
@@ -142,11 +169,23 @@ FROM orders o
   INNER JOIN product p USING (product_id)
 WHERE o.order_id = $1;`
 
+type FindProductsInOrderProjection interface {
+	GetOrderID() *int32
+	GetProductID() *int32
+	GetName() *string
+}
+
 type FindProductsInOrderRow struct {
 	OrderID   *int32  `json:"order_id" db:"order_id"`
 	ProductID *int32  `json:"product_id" db:"product_id"`
 	Name      *string `json:"name" db:"name"`
 }
+
+func (r FindProductsInOrderRow) GetOrderID() *int32 { return r.OrderID }
+
+func (r FindProductsInOrderRow) GetProductID() *int32 { return r.ProductID }
+
+func (r FindProductsInOrderRow) GetName() *string { return r.Name }
 
 // FindProductsInOrder implements Querier.FindProductsInOrder.
 func (q *DBQuerier) FindProductsInOrder(ctx context.Context, orderID int32) ([]FindProductsInOrderRow, error) {
@@ -175,12 +214,27 @@ type InsertCustomerParams struct {
 	Email     string `json:"email"`
 }
 
+type InsertCustomerProjection interface {
+	GetCustomerID() int32
+	GetFirstName() string
+	GetLastName() string
+	GetEmail() string
+}
+
 type InsertCustomerRow struct {
 	CustomerID int32  `json:"customer_id" db:"customer_id"`
 	FirstName  string `json:"first_name" db:"first_name"`
 	LastName   string `json:"last_name" db:"last_name"`
 	Email      string `json:"email" db:"email"`
 }
+
+func (r InsertCustomerRow) GetCustomerID() int32 { return r.CustomerID }
+
+func (r InsertCustomerRow) GetFirstName() string { return r.FirstName }
+
+func (r InsertCustomerRow) GetLastName() string { return r.LastName }
+
+func (r InsertCustomerRow) GetEmail() string { return r.Email }
 
 // InsertCustomer implements Querier.InsertCustomer.
 func (q *DBQuerier) InsertCustomer(ctx context.Context, params InsertCustomerParams) (InsertCustomerRow, error) {
@@ -209,12 +263,27 @@ type InsertOrderParams struct {
 	CustID     int32              `json:"cust_id"`
 }
 
+type InsertOrderProjection interface {
+	GetOrderID() int32
+	GetOrderDate() pgtype.Timestamptz
+	GetOrderTotal() pgtype.Numeric
+	GetCustomerID() *int32
+}
+
 type InsertOrderRow struct {
 	OrderID    int32              `json:"order_id" db:"order_id"`
 	OrderDate  pgtype.Timestamptz `json:"order_date" db:"order_date"`
 	OrderTotal pgtype.Numeric     `json:"order_total" db:"order_total"`
 	CustomerID *int32             `json:"customer_id" db:"customer_id"`
 }
+
+func (r InsertOrderRow) GetOrderID() int32 { return r.OrderID }
+
+func (r InsertOrderRow) GetOrderDate() pgtype.Timestamptz { return r.OrderDate }
+
+func (r InsertOrderRow) GetOrderTotal() pgtype.Numeric { return r.OrderTotal }
+
+func (r InsertOrderRow) GetCustomerID() *int32 { return r.CustomerID }
 
 // InsertOrder implements Querier.InsertOrder.
 func (q *DBQuerier) InsertOrder(ctx context.Context, params InsertOrderParams) (InsertOrderRow, error) {

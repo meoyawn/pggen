@@ -203,10 +203,19 @@ func (q *DBQuerier) BacktickBackslashN(ctx context.Context) (string, error) {
 
 const illegalNameSymbolsSQL = "SELECT '`\\n' as \"$\", $1 as \"foo.bar!@#$%&*()\"\"--+\";"
 
+type IllegalNameSymbolsProjection interface {
+	GetUnnamedColumn0() string
+	GetFooBar() string
+}
+
 type IllegalNameSymbolsRow struct {
 	UnnamedColumn0 string `json:"$" db:"$"`
 	FooBar         string `json:"foo.bar!@#$%&*()\"--+" db:"foo.bar!@#$%&*()\"--+"`
 }
+
+func (r IllegalNameSymbolsRow) GetUnnamedColumn0() string { return r.UnnamedColumn0 }
+
+func (r IllegalNameSymbolsRow) GetFooBar() string { return r.FooBar }
 
 // IllegalNameSymbols implements Querier.IllegalNameSymbols.
 func (q *DBQuerier) IllegalNameSymbols(ctx context.Context, helloWorld string) (IllegalNameSymbolsRow, error) {

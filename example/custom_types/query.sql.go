@@ -77,10 +77,19 @@ func addTypeToRegister(typ string) struct{} {
 
 const customTypesSQL = `SELECT 'some_text', 1::bigint;`
 
+type CustomTypesProjection interface {
+	GetColumn() mytype.String
+	GetInt8() CustomInt
+}
+
 type CustomTypesRow struct {
 	Column mytype.String `json:"?column?" db:"?column?"`
 	Int8   CustomInt     `json:"int8" db:"int8"`
 }
+
+func (r CustomTypesRow) GetColumn() mytype.String { return r.Column }
+
+func (r CustomTypesRow) GetInt8() CustomInt { return r.Int8 }
 
 // CustomTypes implements Querier.CustomTypes.
 func (q *DBQuerier) CustomTypes(ctx context.Context) (CustomTypesRow, error) {

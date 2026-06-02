@@ -122,10 +122,19 @@ type SearchScreenshotsParams struct {
 	Offset int    `json:"Offset"`
 }
 
+type SearchScreenshotsProjection interface {
+	GetID() int
+	GetBlocks() []Blocks
+}
+
 type SearchScreenshotsRow struct {
 	ID     int      `json:"id" db:"id"`
 	Blocks []Blocks `json:"blocks" db:"blocks"`
 }
+
+func (r SearchScreenshotsRow) GetID() int { return r.ID }
+
+func (r SearchScreenshotsRow) GetBlocks() []Blocks { return r.Blocks }
 
 // SearchScreenshots implements Querier.SearchScreenshots.
 func (q *DBQuerier) SearchScreenshots(ctx context.Context, params SearchScreenshotsParams) ([]SearchScreenshotsRow, error) {
@@ -185,11 +194,23 @@ INTO blocks (screenshot_id, body)
 VALUES ($1, $2)
 RETURNING id, screenshot_id, body;`
 
+type InsertScreenshotBlocksProjection interface {
+	GetID() int
+	GetScreenshotID() int
+	GetBody() string
+}
+
 type InsertScreenshotBlocksRow struct {
 	ID           int    `json:"id" db:"id"`
 	ScreenshotID int    `json:"screenshot_id" db:"screenshot_id"`
 	Body         string `json:"body" db:"body"`
 }
+
+func (r InsertScreenshotBlocksRow) GetID() int { return r.ID }
+
+func (r InsertScreenshotBlocksRow) GetScreenshotID() int { return r.ScreenshotID }
+
+func (r InsertScreenshotBlocksRow) GetBody() string { return r.Body }
 
 // InsertScreenshotBlocks implements Querier.InsertScreenshotBlocks.
 func (q *DBQuerier) InsertScreenshotBlocks(ctx context.Context, screenshotID int, body string) (InsertScreenshotBlocksRow, error) {

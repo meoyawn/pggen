@@ -44,7 +44,7 @@ update-acceptance-test:
 
 .PHONY: lint
 lint:
-	golangci-lint run
+	go tool golangci-lint run
 
 .PHONY: dist-dir
 dist-dir:

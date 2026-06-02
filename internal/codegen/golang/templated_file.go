@@ -55,11 +55,12 @@ type TemplatedParam struct {
 }
 
 type TemplatedColumn struct {
-	PgName    string // original name of the Postgres column
-	UpperName string // name in Go-style (UpperCamelCase) to use for the column
-	LowerName string // name in Go-style (lowerCamelCase)
-	Type      gotype.Type
-	QualType  string // package qualified Go type to use for the column, like "pgtype.Text"
+	PgName     string // original name of the Postgres column
+	UpperName  string // name in Go-style (UpperCamelCase) to use for the column
+	LowerName  string // name in Go-style (lowerCamelCase)
+	GetterName string // name of the projection getter method
+	Type       gotype.Type
+	QualType   string // package qualified Go type to use for the column, like "pgtype.Text"
 }
 
 func (tf TemplatedFile) needsPgconnImport() bool {
@@ -502,6 +503,31 @@ func getLongestOutput(outs []TemplatedColumn) (int, int) {
 	return nameLen, typeLen
 }
 
+func (tq TemplatedQuery) hasProjection() bool {
+	return tq.ResultKind != ast.ResultKindExec && len(tq.Outputs) > 1
+}
+
+// EmitProjectionInterface writes the interface implemented by a multi-column
+// output row.
+func (tq TemplatedQuery) EmitProjectionInterface() string {
+	if !tq.hasProjection() {
+		return ""
+	}
+	sb := &strings.Builder{}
+	sb.WriteString("\n\ntype ")
+	sb.WriteString(tq.Name)
+	sb.WriteString("Projection interface {\n")
+	for _, out := range tq.Outputs {
+		sb.WriteString("\t")
+		sb.WriteString(out.GetterName)
+		sb.WriteString("() ")
+		sb.WriteString(out.QualType)
+		sb.WriteRune('\n')
+	}
+	sb.WriteString("}")
+	return sb.String()
+}
+
 // EmitRowStruct writes the struct definition for query output row if one is
 // needed.
 func (tq TemplatedQuery) EmitRowStruct() string {
@@ -538,4 +564,25 @@ func (tq TemplatedQuery) EmitRowStruct() string {
 	default:
 		panic("unhandled result type: " + tq.ResultKind)
 	}
+}
+
+// EmitRowGetterMethods writes projection getter methods for a multi-column
+// output row.
+func (tq TemplatedQuery) EmitRowGetterMethods() string {
+	if !tq.hasProjection() {
+		return ""
+	}
+	sb := &strings.Builder{}
+	for _, out := range tq.Outputs {
+		sb.WriteString("\n\nfunc (r ")
+		sb.WriteString(tq.Name)
+		sb.WriteString("Row) ")
+		sb.WriteString(out.GetterName)
+		sb.WriteString("() ")
+		sb.WriteString(out.QualType)
+		sb.WriteString(" { return r.")
+		sb.WriteString(out.UpperName)
+		sb.WriteString(" }")
+	}
+	return sb.String()
 }
