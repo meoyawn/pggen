@@ -1,4 +1,5 @@
-/*.iml
-/.idea/
-/dist/
+*.iml
+.idea/
+dist/
 .DS_Store
+.task/

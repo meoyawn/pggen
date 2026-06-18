@@ -1,0 +1,106 @@
+version: '3'
+
+vars:
+  VERSION:
+    sh: date '+%Y-%m-%d'
+  COMMIT:
+    sh: git rev-parse --short HEAD
+  LDFLAGS: -ldflags "-X 'main.version={{.VERSION}}' -X 'main.commit={{.COMMIT}}'"
+
+tasks:
+  default:
+    desc: Run lint, tests, and acceptance tests
+    deps:
+      - all
+
+  all:
+    desc: Run lint, tests, and acceptance tests
+    run: once
+    deps:
+      - lint
+      - test
+      - acceptance-test
+
+  check:
+    desc: Run lint, tests, and update acceptance tests
+    run: once
+    deps:
+      - lint
+      - test
+      - update-acceptance-test
+
+  outdated:
+    desc: Print modules with available updates
+    run: once
+    cmd: >
+      go list -m -u -mod=readonly -f
+      '{{`{{if .Update}}{{.Path}} {{.Version}} -> {{.Update.Version}}{{end}}`}}'
+      all
+
+  start:
+    desc: Start the Postgres Docker service
+    run: once
+    cmd: docker-compose up -d
+
+  stop:
+    desc: Stop the Postgres Docker service
+    run: once
+    cmd: docker-compose down
+
+  restart:
+    desc: Restart the Postgres Docker service
+    run: once
+    cmds:
+      - docker-compose down
+      - docker-compose up -d
+
+  psql:
+    desc: Connect to the local Postgres service
+    run: once
+    env:
+      PGPASSWORD: hunter2
+    cmd: psql --host=127.0.0.1 --port=5555 --username=postgres pggen
+
+  test:
+    desc: Run the test suite through pgdocker
+    run: once
+    cmd: go run ./internal/pgdocker/cmd/pgdocker -- go test ./...
+    sources:
+      - "**/*.go"
+      - "**/*.sql"
+      - go.sum
+
+  acceptance-test:
+    desc: Run acceptance tests
+    run: once
+    env:
+      DOCKER_API_VERSION: '1.39'
+    cmd: go test ./example/acceptance_test.go
+
+  update-acceptance-test:
+    desc: Update acceptance test output
+    run: once
+    cmd: go test ./example/acceptance_test.go -update
+    sources:
+      - "**/*.sql"
+      - "**/*.go"
+      - go.sum
+
+  lint:
+    desc: Run golangci-lint
+    run: once
+    cmd: go tool golangci-lint run
+    sources:
+      - .golangci.yaml
+      - "**/*.go"
+      - go.sum
+
+  dist-dir:
+    desc: Create the dist directory
+    run: once
+    cmd: mkdir -p dist
+
+  release:
+    desc: Build a release
+    run: once
+    cmd: ./script/release.sh

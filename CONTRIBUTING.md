@@ -10,21 +10,21 @@ First, read [ARCHITECTURE.md](ARCHITECTURE.md) to get a lay of the land.
 # Dependencies - see Setup below
 
 # Start a long-lived Postgres server in Docker for integration tests.
-# Connect with "make psql"
-make start 
+# Connect with "task psql"
+task start
 
 # Hack
 # Commit changes
 
 # Validate changes
-make lint && make test && make acceptance-test 
-# make all - equivalent
-# make     - equivalent
+task lint && task test && task acceptance-test
+# task all - equivalent
+# task     - equivalent
 
 # Send PR to GitHub. Check that tests and lints passed.
 
 # Stop Postgres server running in Docker.
-make stop
+task stop
 ```
 
 ## Design goals of pggen
@@ -72,8 +72,8 @@ tests from one another. Creating a new schema is much faster than spinning up a
 new Dockerized Postgres instance.
 
 ```shell
-make start
-make test # all unit tests
+task start
+task test # all unit tests
 ```
 
 To run the acceptance tests to validate that pggen produces the same code as 
@@ -83,13 +83,13 @@ the checked-in example code:
 # Acceptance tests check that there's no Git diffs so commit code first.
 git commit -m "some message" 
 
-make acceptance-test
+task acceptance-test
 ```
 
 To update the acceptance tests after changing the code generator:
 
 ```shell
-make update-acceptance-test
+task update-acceptance-test
 ```
 
 ### Testing hierarchy
@@ -97,15 +97,15 @@ make update-acceptance-test
 pggen has tests at most parts of the testing hierarchy.
 
 -   Unit tests to test the logic of small, independent components, like 
-    [casing_test.go]. Run with `make test`.
+    [casing_test.go]. Run with `task test`.
     
 -   Integration tests like the [pginfer_test.go] to test that the code works
     (integrates) with different subsystems like Postgres, Docker, or other Go
-    packages. As with unit tests, run with `make test`.
+    packages. As with unit tests, run with `task test`.
     
 -   Acceptance tests like [example/nested/codegen_test.go] to test that pggen
     produces the exact same output as the checked-in examples. Run with 
-    `make acceptance-test`.
+    `task acceptance-test`.
     
 [casing_test.go]: internal/casing/casing_test.go
 [pginfer_test.go]: internal/pginfer/pginfer_test.go
