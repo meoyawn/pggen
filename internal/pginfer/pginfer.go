@@ -21,7 +21,7 @@ type TypedQuery struct {
 	// Name of the query, from the comment preceding the query. Like 'FindAuthors'
 	// in the source SQL: "-- name: FindAuthors :many"
 	Name string
-	// The result output kind, :one, :many, or :exec.
+	// The result output kind, :one, :many, :stream, or :exec.
 	ResultKind ast.ResultKind
 	// The comment lines preceding the query, without the SQL comment syntax and
 	// excluding the :name line.

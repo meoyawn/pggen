@@ -23,3 +23,7 @@ LIMIT 1;
 -- name: GenSeriesStr :many
 SELECT n::text
 FROM generate_series(0, 2) n;
+
+-- name: StreamSeriesStr :stream
+SELECT n::text
+FROM generate_series(0, 2) n;

@@ -6,6 +6,10 @@ SELECT * FROM author WHERE author_id = pggen.arg('AuthorID');
 -- name: FindAuthors :many row=Author
 SELECT * FROM author WHERE first_name = pggen.arg('FirstName');
 
+-- StreamAuthors streams authors by first name.
+-- name: StreamAuthors :stream row=Author
+SELECT * FROM author WHERE first_name = pggen.arg('FirstName');
+
 -- FindAuthorNames finds one (or zero) authors by ID.
 -- name: FindAuthorNames :many
 SELECT first_name, last_name FROM author ORDER BY author_id = pggen.arg('AuthorID');

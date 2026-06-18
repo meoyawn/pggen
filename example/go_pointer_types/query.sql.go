@@ -24,6 +24,8 @@ type Querier interface {
 	GenSeriesStr1(ctx context.Context) (*string, error)
 
 	GenSeriesStr(ctx context.Context) ([]*string, error)
+
+	StreamSeriesStr(ctx context.Context, yield func(*string) error) error
 }
 
 var _ Querier = &DBQuerier{}
@@ -42,6 +44,14 @@ type genericConn interface {
 // NewQuerier creates a DBQuerier that implements Querier.
 func NewQuerier(conn genericConn) *DBQuerier {
 	return &DBQuerier{conn: conn}
+}
+
+func forEachRow[T any](rows pgx.Rows, scanTargets func(*T) []any, yield func(T) error) error {
+	var item T
+	_, err := pgx.ForEachRow(rows, scanTargets(&item), func() error {
+		return yield(item)
+	})
+	return err
 }
 
 // RegisterTypes loads custom PostgreSQL types into conn's pgx type map.
@@ -198,4 +208,23 @@ func (q *DBQuerier) GenSeriesStr(ctx context.Context) ([]*string, error) {
 		return zero, fmt.Errorf("scan GenSeriesStr row: %w", err)
 	}
 	return result, nil
+}
+
+const streamSeriesStrSQL = `SELECT n::text
+FROM generate_series(0, 2) n;`
+
+// StreamSeriesStr implements Querier.StreamSeriesStr.
+func (q *DBQuerier) StreamSeriesStr(ctx context.Context, yield func(*string) error) error {
+	ctx = context.WithValue(ctx, QueryName{}, "StreamSeriesStr")
+	rows, err := q.conn.Query(ctx, streamSeriesStrSQL)
+	if err != nil {
+		return fmt.Errorf("query StreamSeriesStr: %w", err)
+	}
+
+	if err := forEachRow(rows, func(item **string) []any {
+		return []any{item}
+	}, yield); err != nil {
+		return fmt.Errorf("stream StreamSeriesStr row: %w", err)
+	}
+	return nil
 }

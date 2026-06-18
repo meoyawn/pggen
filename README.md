@@ -12,8 +12,9 @@ have to worry about SQL injection attacks.
 
 How to use pggen in three steps:
 
-1.  Write arbitrarily complex SQL queries with a name and a `:one`, `:many`, or
-    `:exec` annotation. Declare inputs with `pggen.arg('input_name')`.
+1.  Write arbitrarily complex SQL queries with a name and a `:one`, `:many`,
+    `:stream`, or `:exec` annotation. Declare inputs with
+    `pggen.arg('input_name')`.
 
     ```sql
     -- name: SearchScreenshots :many
@@ -62,6 +63,14 @@ How to use pggen in three steps:
         ctx context.Context,
         params SearchScreenshotsParams,
     ) ([]SearchScreenshotsRow, error) {
+        /* omitted */
+    }
+
+    func (q *DBQuerier) StreamScreenshots(
+        ctx context.Context,
+        params StreamScreenshotsParams,
+        yield func(StreamScreenshotsRow) error,
+    ) error {
         /* omitted */
     }
     ```
@@ -474,12 +483,17 @@ CREATE TABLE author (
 ```
 
 First, write a query in the file `author/query.sql`. The query name is 
-`FindAuthors` and the query returns `:many` rows. A query can return `:many` 
-rows, `:one` row, or `:exec` for update, insert, and delete queries.
+`FindAuthors` and the query returns `:many` rows. A query can return `:many`
+rows, `:one` row, `:stream` rows through a callback, or `:exec` for update,
+insert, and delete queries.
 
 ```sql
 -- FindAuthors finds authors by first name.
 -- name: FindAuthors :many
+SELECT * FROM author WHERE first_name = pggen.arg('first_name');
+
+-- StreamAuthors streams authors by first name.
+-- name: StreamAuthors :stream
 SELECT * FROM author WHERE first_name = pggen.arg('first_name');
 ```
 
@@ -500,6 +514,9 @@ We'll walk through the generated file `author/query.sql.go`:
     type Querier interface {
         // FindAuthors finds authors by first name.
         FindAuthors(ctx context.Context, firstName string) ([]FindAuthorsRow, error)
+
+        // StreamAuthors streams authors by first name.
+        StreamAuthors(ctx context.Context, firstName string, yield func(StreamAuthorsRow) error) error
     }
     ```
 
@@ -604,6 +621,21 @@ We'll walk through the generated file `author/query.sql.go`:
             return zero, fmt.Errorf("scan FindAuthors row: %w", err)
         }
         return result, nil
+    }
+
+    // StreamAuthors implements Querier.StreamAuthors.
+    func (q *DBQuerier) StreamAuthors(ctx context.Context, firstName string, yield func(StreamAuthorsRow) error) error {
+        ctx = context.WithValue(ctx, QueryName{}, "StreamAuthors")
+        rows, err := q.conn.Query(ctx, streamAuthorsSQL, firstName)
+        if err != nil {
+            return fmt.Errorf("query StreamAuthors: %w", err)
+        }
+
+        var item StreamAuthorsRow
+        if err := forEachRow(rows, []any{&item.AuthorID, &item.FirstName, &item.LastName, &item.Suffix}, &item, yield); err != nil {
+            return fmt.Errorf("stream StreamAuthors row: %w", err)
+        }
+        return nil
     }
     ```
 

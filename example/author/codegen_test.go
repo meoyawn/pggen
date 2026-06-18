@@ -59,6 +59,10 @@ SELECT * FROM author WHERE author_id = pggen.arg('AuthorID');
 -- FindAuthors finds authors by first name.
 -- name: FindAuthors :many row=Author
 SELECT * FROM author WHERE first_name = pggen.arg('FirstName');
+
+-- StreamAuthors streams authors by first name.
+-- name: StreamAuthors :stream row=Author
+SELECT * FROM author WHERE first_name = pggen.arg('FirstName');
 `), 0o600)
 	if err != nil {
 		t.Fatalf("write query file: %s", err)
@@ -88,8 +92,13 @@ SELECT * FROM author WHERE first_name = pggen.arg('FirstName');
 	assert.Contains(t, got, "type AuthorRow struct {")
 	assert.Contains(t, got, "FindAuthorByID(ctx context.Context, authorID int32) (AuthorRow, error)")
 	assert.Contains(t, got, "FindAuthors(ctx context.Context, firstName string) ([]AuthorRow, error)")
+	assert.Contains(t, got, "StreamAuthors(ctx context.Context, firstName string, yield func(AuthorRow) error) error")
 	assert.Contains(t, got, "pgx.RowToStructByName[AuthorRow]")
+	assert.Contains(t, got, "forEachRow(rows, func(item *AuthorRow) []any {")
+	assert.Contains(t, got, "return []any{&item.AuthorID, &item.FirstName, &item.LastName, &item.Suffix}")
+	assert.Contains(t, got, "pgx.ForEachRow(rows, scanTargets(&item), func() error")
 	assert.Equal(t, 1, strings.Count(got, "type AuthorRow struct {"))
 	assert.NotContains(t, got, "type FindAuthorByIDRow struct {")
 	assert.NotContains(t, got, "type FindAuthorsRow struct {")
+	assert.NotContains(t, got, "type StreamAuthorsRow struct {")
 }

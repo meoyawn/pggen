@@ -88,4 +88,18 @@ func TestQuerier_GenSeriesStr(t *testing.T) {
 		zero, one, two := "0", "1", "2"
 		assert.Equal(t, []*string{&zero, &one, &two}, got)
 	})
+
+	t.Run("StreamSeriesStr", func(t *testing.T) {
+		var got []string
+		err := q.StreamSeriesStr(ctx, func(row *string) error {
+			if row == nil {
+				got = append(got, "<nil>")
+				return nil
+			}
+			got = append(got, *row)
+			return nil
+		})
+		require.NoError(t, err)
+		assert.Equal(t, []string{"0", "1", "2"}, got)
+	})
 }

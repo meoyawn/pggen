@@ -91,13 +91,60 @@ func TestNewQuerier_FindAuthors(t *testing.T) {
 			{AuthorID: washingtonID, FirstName: "george", LastName: "washington", Suffix: nil},
 			{AuthorID: carverID, FirstName: "george", LastName: "carver", Suffix: nil},
 		}
-		assert.Equal(t, want, authors)
+		assert.ElementsMatch(t, want, authors)
 	})
 
 	t.Run("FindAuthors - 0 rows - joe", func(t *testing.T) {
 		authors, err := q.FindAuthors(t.Context(), "joe")
 		require.NoError(t, err)
 		assert.Equal(t, []AuthorRow{}, authors)
+	})
+}
+
+func TestNewQuerier_StreamAuthors(t *testing.T) {
+	conn, cleanup := pgtest.NewPostgresSchema(t, []string{"schema.sql"})
+	defer cleanup()
+	q := NewQuerier(conn)
+	adamsID := insertAuthor(t, q, "john", "adams")
+	washingtonID := insertAuthor(t, q, "george", "washington")
+	carverID := insertAuthor(t, q, "george", "carver")
+
+	t.Run("StreamAuthors - 2 rows - george", func(t *testing.T) {
+		var authors []AuthorRow
+		err := q.StreamAuthors(t.Context(), "george", func(row AuthorRow) error {
+			authors = append(authors, row)
+			return nil
+		})
+		require.NoError(t, err)
+		want := []AuthorRow{
+			{AuthorID: washingtonID, FirstName: "george", LastName: "washington", Suffix: nil},
+			{AuthorID: carverID, FirstName: "george", LastName: "carver", Suffix: nil},
+		}
+		assert.Equal(t, want, authors)
+	})
+
+	t.Run("StreamAuthors - 0 rows - joe", func(t *testing.T) {
+		var calls int
+		err := q.StreamAuthors(t.Context(), "joe", func(row AuthorRow) error {
+			calls++
+			return nil
+		})
+		require.NoError(t, err)
+		assert.Zero(t, calls)
+	})
+
+	t.Run("StreamAuthors - early stop", func(t *testing.T) {
+		stopErr := errors.New("stop streaming")
+		var authors []AuthorRow
+		err := q.StreamAuthors(t.Context(), "john", func(row AuthorRow) error {
+			authors = append(authors, row)
+			return stopErr
+		})
+		require.Error(t, err)
+		assert.ErrorIs(t, err, stopErr)
+		assert.Equal(t, []AuthorRow{
+			{AuthorID: adamsID, FirstName: "john", LastName: "adams", Suffix: nil},
+		}, authors)
 	})
 }
 

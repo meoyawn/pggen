@@ -133,6 +133,18 @@ func TestParseFile_Queries(t *testing.T) {
 				Pragmas:     ast.Pragmas{RowType: "Shared"},
 			},
 		},
+		{
+			"-- name: StreamAuthors :stream row=Author\nSELECT 1;",
+			&ast.SourceQuery{
+				Name:        "StreamAuthors",
+				Doc:         &ast.CommentGroup{List: []*ast.LineComment{{Text: "-- name: StreamAuthors :stream row=Author"}}},
+				SourceSQL:   "SELECT 1;",
+				PreparedSQL: "SELECT 1;",
+				ParamNames:  nil,
+				ResultKind:  ast.ResultKindStream,
+				Pragmas:     ast.Pragmas{RowType: "Author"},
+			},
+		},
 	}
 
 	for _, tt := range tests {

@@ -19,6 +19,9 @@ type Querier interface {
 	// FindAuthors finds authors by first name.
 	FindAuthors(ctx context.Context, firstName string) ([]AuthorRow, error)
 
+	// StreamAuthors streams authors by first name.
+	StreamAuthors(ctx context.Context, firstName string, yield func(AuthorRow) error) error
+
 	// FindAuthorNames finds one (or zero) authors by ID.
 	FindAuthorNames(ctx context.Context, authorID int32) ([]FindAuthorNamesRow, error)
 
@@ -65,6 +68,14 @@ type genericConn interface {
 // NewQuerier creates a DBQuerier that implements Querier.
 func NewQuerier(conn genericConn) *DBQuerier {
 	return &DBQuerier{conn: conn}
+}
+
+func forEachRow[T any](rows pgx.Rows, scanTargets func(*T) []any, yield func(T) error) error {
+	var item T
+	_, err := pgx.ForEachRow(rows, scanTargets(&item), func() error {
+		return yield(item)
+	})
+	return err
 }
 
 // RegisterTypes loads custom PostgreSQL types into conn's pgx type map.
@@ -144,6 +155,24 @@ func (q *DBQuerier) FindAuthors(ctx context.Context, firstName string) ([]Author
 		return zero, fmt.Errorf("scan FindAuthors row: %w", err)
 	}
 	return result, nil
+}
+
+const streamAuthorsSQL = `SELECT * FROM author WHERE first_name = $1;`
+
+// StreamAuthors implements Querier.StreamAuthors.
+func (q *DBQuerier) StreamAuthors(ctx context.Context, firstName string, yield func(AuthorRow) error) error {
+	ctx = context.WithValue(ctx, QueryName{}, "StreamAuthors")
+	rows, err := q.conn.Query(ctx, streamAuthorsSQL, firstName)
+	if err != nil {
+		return fmt.Errorf("query StreamAuthors: %w", err)
+	}
+
+	if err := forEachRow(rows, func(item *AuthorRow) []any {
+		return []any{&item.AuthorID, &item.FirstName, &item.LastName, &item.Suffix}
+	}, yield); err != nil {
+		return fmt.Errorf("stream StreamAuthors row: %w", err)
+	}
+	return nil
 }
 
 const findAuthorNamesSQL = `SELECT first_name, last_name FROM author ORDER BY author_id = $1;`

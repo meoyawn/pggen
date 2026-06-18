@@ -16,6 +16,17 @@ type TemplatedPackage struct {
 	Files []TemplatedFile // sorted lexicographically by path
 }
 
+func (tp TemplatedPackage) HasStream() bool {
+	for _, file := range tp.Files {
+		for _, query := range file.Queries {
+			if query.ResultKind == ast.ResultKindStream {
+				return true
+			}
+		}
+	}
+	return false
+}
+
 // TemplatedFile is the Go version of a SQL query file with all information
 // needed to execute the codegen template.
 type TemplatedFile struct {
@@ -40,7 +51,7 @@ type TemplatedQuery struct {
 	RowStructType    string            // output row struct type for multi-column results
 	ShouldEmitRow    bool              // true if this query owns its row struct declaration
 	SQLVarName       string            // name of the string variable containing the SQL
-	ResultKind       ast.ResultKind    // kind of result: :one, :many, or :exec
+	ResultKind       ast.ResultKind    // kind of result: :one, :many, :stream, or :exec
 	Doc              string            // doc from the source query file, formatted for Go
 	PreparedSQL      string            // SQL query, ready to run with PREPARE statement
 	Inputs           []TemplatedParam  // input parameters to the query
@@ -186,7 +197,7 @@ func (tq TemplatedQuery) EmitPlanScan(idx int, out TemplatedColumn) (string, err
 	switch tq.ResultKind {
 	case ast.ResultKindExec:
 		return "", fmt.Errorf("cannot EmitPlanScanArgs for :exec query %s", tq.Name)
-	case ast.ResultKindMany, ast.ResultKindOne:
+	case ast.ResultKindMany, ast.ResultKindOne, ast.ResultKindStream:
 		break // okay
 	default:
 		return "", fmt.Errorf("unhandled EmitPlanScanArgs type: %s", tq.ResultKind)
@@ -211,7 +222,7 @@ func (tq TemplatedQuery) EmitRowScanArgs() (string, error) {
 	switch tq.ResultKind {
 	case ast.ResultKindExec:
 		return "", fmt.Errorf("cannot EmitRowScanArgs for :exec query %s", tq.Name)
-	case ast.ResultKindMany, ast.ResultKindOne:
+	case ast.ResultKindMany, ast.ResultKindOne, ast.ResultKindStream:
 		break // okay
 	default:
 		return "", fmt.Errorf("unhandled EmitRowScanArgs type: %s", tq.ResultKind)
@@ -265,6 +276,8 @@ func (tq TemplatedQuery) EmitCollectionFunc() (string, error) {
 	switch tq.ResultKind {
 	case ast.ResultKindExec:
 		return "", fmt.Errorf("cannot EmitCollectionFunc for :exec query %s", tq.Name)
+	case ast.ResultKindStream:
+		return "", fmt.Errorf("cannot EmitCollectionFunc for :stream query %s", tq.Name)
 	case ast.ResultKindMany:
 		return "pgx.CollectRows", nil
 	case ast.ResultKindOne:
@@ -278,6 +291,8 @@ func (tq TemplatedQuery) EmitCollectionErrContext() (string, error) {
 	switch tq.ResultKind {
 	case ast.ResultKindExec:
 		return "", fmt.Errorf("cannot EmitCollectionErrContext for :exec query %s", tq.Name)
+	case ast.ResultKindStream:
+		return "", fmt.Errorf("cannot EmitCollectionErrContext for :stream query %s", tq.Name)
 	case ast.ResultKindMany:
 		return "scan " + tq.Name + " row", nil
 	case ast.ResultKindOne:
@@ -291,7 +306,7 @@ func (tq TemplatedQuery) EmitRowToFunc() (string, error) {
 	switch tq.ResultKind {
 	case ast.ResultKindExec:
 		return "", fmt.Errorf("cannot EmitRowToFunc for :exec query %s", tq.Name)
-	case ast.ResultKindMany, ast.ResultKindOne:
+	case ast.ResultKindMany, ast.ResultKindOne, ast.ResultKindStream:
 		if len(tq.Outputs) == 1 {
 			return "pgx.RowTo", nil
 		}
@@ -299,6 +314,10 @@ func (tq TemplatedQuery) EmitRowToFunc() (string, error) {
 	default:
 		return "", fmt.Errorf("unhandled EmitRowToFunc type: %s", tq.ResultKind)
 	}
+}
+
+func (tq TemplatedQuery) EmitStreamParams() string {
+	return tq.EmitParams() + ", yield func(" + tq.EmitSingularResultType() + ") error"
 }
 
 func (tq TemplatedQuery) EmitRowMapper() (string, error) {
@@ -339,6 +358,22 @@ func (tq TemplatedQuery) EmitScanTargets() (string, error) {
 	return strings.Join(targets, ", "), nil
 }
 
+func (tq TemplatedQuery) EmitStreamScanTargets() (string, error) {
+	targets := make([]string, 0, len(tq.ScanCols))
+	for _, col := range tq.ScanCols {
+		if _, ok := gotype.UnwrapNestedType(col.Type).(*gotype.VoidType); ok {
+			targets = append(targets, "nil")
+			continue
+		}
+		if len(tq.Outputs) == 1 {
+			targets = append(targets, "item")
+			continue
+		}
+		targets = append(targets, "&item."+col.UpperName)
+	}
+	return strings.Join(targets, ", "), nil
+}
+
 // EmitSingularResultType returns the string representing a single element
 // of the overall query result type, like FindAuthorsRow when the overall return
 // type is []FindAuthorsRow.
@@ -368,6 +403,8 @@ func (tq TemplatedQuery) EmitResultType() (string, error) {
 		return "[]" + tq.EmitSingularResultType(), nil
 	case ast.ResultKindOne:
 		return tq.EmitSingularResultType(), nil
+	case ast.ResultKindStream:
+		return "error", nil
 	default:
 		return "", fmt.Errorf("unhandled EmitResultType kind: %s", tq.ResultKind)
 	}
@@ -406,6 +443,8 @@ func (tq TemplatedQuery) EmitResultTypeInit(name string) (string, error) {
 
 	case ast.ResultKindExec:
 		return "", fmt.Errorf("cannot EmitResultTypeInit for :exec query %s", tq.Name)
+	case ast.ResultKindStream:
+		return "", fmt.Errorf("cannot EmitResultTypeInit for :stream query %s", tq.Name)
 
 	default:
 		return "", fmt.Errorf("unhandled EmitResultTypeInit for kind %s", tq.ResultKind)
@@ -426,6 +465,8 @@ func (tq TemplatedQuery) EmitZeroResult() (string, error) {
 	switch tq.ResultKind {
 	case ast.ResultKindExec:
 		return "pgconn.CommandTag{}", nil
+	case ast.ResultKindStream:
+		return "", fmt.Errorf("cannot EmitZeroResult for :stream query %s", tq.Name)
 	case ast.ResultKindMany:
 		return "nil", nil // empty slice
 	case ast.ResultKindOne:
@@ -481,6 +522,8 @@ func (tq TemplatedQuery) EmitResultExpr(name string) (string, error) {
 
 	case ast.ResultKindExec:
 		return "", fmt.Errorf("cannot EmitResultExpr for :exec query %s", tq.Name)
+	case ast.ResultKindStream:
+		return "", fmt.Errorf("cannot EmitResultExpr for :stream query %s", tq.Name)
 
 	default:
 		return "", fmt.Errorf("unhandled EmitResultExpr type: %s", tq.ResultKind)
@@ -515,7 +558,7 @@ func (tq TemplatedQuery) EmitRowStruct() string {
 	switch tq.ResultKind {
 	case ast.ResultKindExec:
 		return ""
-	case ast.ResultKindOne, ast.ResultKindMany:
+	case ast.ResultKindOne, ast.ResultKindMany, ast.ResultKindStream:
 		if len(tq.Outputs) == 1 {
 			return "" // if there's only 1 output column, return it directly
 		}

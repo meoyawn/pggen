@@ -69,9 +69,10 @@ func (g *CommentGroup) Kind() NodeKind { return KindCommentGroup }
 type ResultKind string
 
 const (
-	ResultKindMany ResultKind = ":many"
-	ResultKindOne  ResultKind = ":one"
-	ResultKindExec ResultKind = ":exec"
+	ResultKindMany   ResultKind = ":many"
+	ResultKindOne    ResultKind = ":one"
+	ResultKindExec   ResultKind = ":exec"
+	ResultKindStream ResultKind = ":stream"
 )
 
 // Pragmas are options to control generated code for a single query.

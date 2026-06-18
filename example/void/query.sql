@@ -12,3 +12,6 @@ SELECT void_fn(), 'foo' as foo, 'bar' as bar;
 
 -- name: VoidThree2 :many
 SELECT 'foo' as foo, void_fn(), void_fn();
+
+-- name: StreamVoidThree :stream
+SELECT 'foo' as foo, void_fn(), void_fn();

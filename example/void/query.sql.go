@@ -22,6 +22,8 @@ type Querier interface {
 	VoidThree(ctx context.Context) (VoidThreeRow, error)
 
 	VoidThree2(ctx context.Context) ([]string, error)
+
+	StreamVoidThree(ctx context.Context, yield func(string) error) error
 }
 
 var _ Querier = &DBQuerier{}
@@ -40,6 +42,14 @@ type genericConn interface {
 // NewQuerier creates a DBQuerier that implements Querier.
 func NewQuerier(conn genericConn) *DBQuerier {
 	return &DBQuerier{conn: conn}
+}
+
+func forEachRow[T any](rows pgx.Rows, scanTargets func(*T) []any, yield func(T) error) error {
+	var item T
+	_, err := pgx.ForEachRow(rows, scanTargets(&item), func() error {
+		return yield(item)
+	})
+	return err
 }
 
 // RegisterTypes loads custom PostgreSQL types into conn's pgx type map.
@@ -178,4 +188,22 @@ func (q *DBQuerier) VoidThree2(ctx context.Context) ([]string, error) {
 		return zero, fmt.Errorf("scan VoidThree2 row: %w", err)
 	}
 	return result, nil
+}
+
+const streamVoidThreeSQL = `SELECT 'foo' as foo, void_fn(), void_fn();`
+
+// StreamVoidThree implements Querier.StreamVoidThree.
+func (q *DBQuerier) StreamVoidThree(ctx context.Context, yield func(string) error) error {
+	ctx = context.WithValue(ctx, QueryName{}, "StreamVoidThree")
+	rows, err := q.conn.Query(ctx, streamVoidThreeSQL)
+	if err != nil {
+		return fmt.Errorf("query StreamVoidThree: %w", err)
+	}
+
+	if err := forEachRow(rows, func(item *string) []any {
+		return []any{item, nil, nil}
+	}, yield); err != nil {
+		return fmt.Errorf("stream StreamVoidThree row: %w", err)
+	}
+	return nil
 }

@@ -45,4 +45,16 @@ func TestQuerier(t *testing.T) {
 		}
 		assert.Equal(t, []string{"foo"}, foos)
 	}
+
+	{
+		var got []string
+		err := q.StreamVoidThree(ctx, func(row string) error {
+			got = append(got, row)
+			return nil
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		assert.Equal(t, []string{"foo"}, got)
+	}
 }
