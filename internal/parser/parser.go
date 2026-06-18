@@ -296,8 +296,13 @@ func parsePragmas(allPragmas string) (ast.Pragmas, error) {
 				return ast.Pragmas{}, err
 			}
 			qp.ProtobufType = p
+		case "row":
+			if val == "" {
+				return ast.Pragmas{}, fmt.Errorf("row pragma must not be empty")
+			}
+			qp.RowType = val
 		default:
-			return ast.Pragmas{}, fmt.Errorf("unsupported pramga %q", key)
+			return ast.Pragmas{}, fmt.Errorf("unsupported pragma %q", key)
 		}
 	}
 	return qp, nil

@@ -11,40 +11,18 @@ import (
 
 const findOrdersByPriceSQL = `SELECT * FROM orders WHERE order_total > $1;`
 
-type FindOrdersByPriceProjection interface {
-	GetOrderID() int32
-	GetOrderDate() pgtype.Timestamptz
-	GetOrderTotal() pgtype.Numeric
-	GetCustomerID() *int32
-}
-
-type FindOrdersByPriceRow struct {
-	OrderID    int32              `json:"order_id" db:"order_id"`
-	OrderDate  pgtype.Timestamptz `json:"order_date" db:"order_date"`
-	OrderTotal pgtype.Numeric     `json:"order_total" db:"order_total"`
-	CustomerID *int32             `json:"customer_id" db:"customer_id"`
-}
-
-func (r *FindOrdersByPriceRow) GetOrderID() int32 { return r.OrderID }
-
-func (r *FindOrdersByPriceRow) GetOrderDate() pgtype.Timestamptz { return r.OrderDate }
-
-func (r *FindOrdersByPriceRow) GetOrderTotal() pgtype.Numeric { return r.OrderTotal }
-
-func (r *FindOrdersByPriceRow) GetCustomerID() *int32 { return r.CustomerID }
-
 // FindOrdersByPrice implements Querier.FindOrdersByPrice.
-func (q *DBQuerier) FindOrdersByPrice(ctx context.Context, minTotal pgtype.Numeric) ([]FindOrdersByPriceRow, error) {
+func (q *DBQuerier) FindOrdersByPrice(ctx context.Context, minTotal pgtype.Numeric) ([]OrderRow, error) {
 	ctx = context.WithValue(ctx, QueryName{}, "FindOrdersByPrice")
 	rows, err := q.conn.Query(ctx, findOrdersByPriceSQL, minTotal)
 	if err != nil {
-		var zero []FindOrdersByPriceRow
+		var zero []OrderRow
 		return zero, fmt.Errorf("query FindOrdersByPrice: %w", err)
 	}
 
-	result, err := pgx.CollectRows(rows, pgx.RowToStructByName[FindOrdersByPriceRow])
+	result, err := pgx.CollectRows(rows, pgx.RowToStructByName[OrderRow])
 	if err != nil {
-		var zero []FindOrdersByPriceRow
+		var zero []OrderRow
 		return zero, fmt.Errorf("scan FindOrdersByPrice row: %w", err)
 	}
 	return result, nil
@@ -54,19 +32,10 @@ const findOrdersMRRSQL = `SELECT date_trunc('month', order_date) AS month, sum(o
 FROM orders
 GROUP BY date_trunc('month', order_date);`
 
-type FindOrdersMRRProjection interface {
-	GetMonth() pgtype.Timestamptz
-	GetOrderMRR() pgtype.Numeric
-}
-
 type FindOrdersMRRRow struct {
 	Month    pgtype.Timestamptz `json:"month" db:"month"`
 	OrderMRR pgtype.Numeric     `json:"order_mrr" db:"order_mrr"`
 }
-
-func (r *FindOrdersMRRRow) GetMonth() pgtype.Timestamptz { return r.Month }
-
-func (r *FindOrdersMRRRow) GetOrderMRR() pgtype.Numeric { return r.OrderMRR }
 
 // FindOrdersMRR implements Querier.FindOrdersMRR.
 func (q *DBQuerier) FindOrdersMRR(ctx context.Context) ([]FindOrdersMRRRow, error) {

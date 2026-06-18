@@ -37,6 +37,17 @@ func TestGenerate_Golang_Error(t *testing.T) {
 			`),
 			wantErrMsg: `function encode(integer, text) does not exist`,
 		},
+		{
+			name:   "incompatible shared row shape",
+			schema: "",
+			queries: texts.Dedent(`
+			-- name: Foo :many row=Shared
+			SELECT 1::int4 AS id, 'foo'::text AS name;
+			-- name: Bar :many row=Shared
+			SELECT 1::int4 AS id, 2::int4 AS name;
+			`),
+			wantErrMsg: `row=Shared used by incompatible queries Foo and Bar`,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

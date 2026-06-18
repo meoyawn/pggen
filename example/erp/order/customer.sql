@@ -3,7 +3,7 @@ INSERT INTO tenant (tenant_id, name)
 VALUES (base36_decode(pggen.arg('key')::text)::tenant_id, pggen.arg('name')::text)
 RETURNING *;
 
--- name: FindOrdersByCustomer :many
+-- name: FindOrdersByCustomer :many row=Order
 SELECT *
 FROM orders
 WHERE customer_id = pggen.arg('CustomerID');

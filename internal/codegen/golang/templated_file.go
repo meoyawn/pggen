@@ -36,6 +36,9 @@ type TemplatedFile struct {
 // codegen template.
 type TemplatedQuery struct {
 	Name             string            // name of the query, from the comment preceding the query
+	RowType          string            // shared output row name prefix, without the Row suffix
+	RowStructType    string            // output row struct type for multi-column results
+	ShouldEmitRow    bool              // true if this query owns its row struct declaration
 	SQLVarName       string            // name of the string variable containing the SQL
 	ResultKind       ast.ResultKind    // kind of result: :one, :many, or :exec
 	Doc              string            // doc from the source query file, formatted for Go
@@ -55,12 +58,12 @@ type TemplatedParam struct {
 }
 
 type TemplatedColumn struct {
-	PgName     string // original name of the Postgres column
-	UpperName  string // name in Go-style (UpperCamelCase) to use for the column
-	LowerName  string // name in Go-style (lowerCamelCase)
-	GetterName string // name of the projection getter method
-	Type       gotype.Type
-	QualType   string // package qualified Go type to use for the column, like "pgtype.Text"
+	PgName    string // original name of the Postgres column
+	UpperName string // name in Go-style (UpperCamelCase) to use for the column
+	LowerName string // name in Go-style (lowerCamelCase)
+	Type      gotype.Type
+	QualType  string // package qualified Go type to use for the column, like "pgtype.Text"
+	Nullable  bool
 }
 
 func (tf TemplatedFile) needsPgconnImport() bool {
@@ -349,7 +352,10 @@ func (tq TemplatedQuery) EmitSingularResultType() string {
 	if len(tq.Outputs) == 1 {
 		return tq.Outputs[0].QualType
 	}
-	return tq.Name + "Row"
+	if tq.RowStructType == "" {
+		return tq.Name + "Row"
+	}
+	return tq.RowStructType
 }
 
 // EmitResultType returns the string representing the overall query result type,
@@ -424,7 +430,7 @@ func (tq TemplatedQuery) EmitZeroResult() (string, error) {
 		return "nil", nil // empty slice
 	case ast.ResultKindOne:
 		if len(tq.Outputs) > 1 {
-			return tq.Name + "Row{}", nil
+			return tq.EmitSingularResultType() + "{}", nil
 		}
 		typ := tq.Outputs[0].Type.BaseName()
 		switch {
@@ -503,31 +509,6 @@ func getLongestOutput(outs []TemplatedColumn) (int, int) {
 	return nameLen, typeLen
 }
 
-func (tq TemplatedQuery) hasProjection() bool {
-	return tq.ResultKind != ast.ResultKindExec && len(tq.Outputs) > 1
-}
-
-// EmitProjectionInterface writes the interface implemented by a multi-column
-// output row.
-func (tq TemplatedQuery) EmitProjectionInterface() string {
-	if !tq.hasProjection() {
-		return ""
-	}
-	sb := &strings.Builder{}
-	sb.WriteString("\n\ntype ")
-	sb.WriteString(tq.Name)
-	sb.WriteString("Projection interface {\n")
-	for _, out := range tq.Outputs {
-		sb.WriteString("\t")
-		sb.WriteString(out.GetterName)
-		sb.WriteString("() ")
-		sb.WriteString(out.QualType)
-		sb.WriteRune('\n')
-	}
-	sb.WriteString("}")
-	return sb.String()
-}
-
 // EmitRowStruct writes the struct definition for query output row if one is
 // needed.
 func (tq TemplatedQuery) EmitRowStruct() string {
@@ -538,10 +519,17 @@ func (tq TemplatedQuery) EmitRowStruct() string {
 		if len(tq.Outputs) == 1 {
 			return "" // if there's only 1 output column, return it directly
 		}
+		if tq.RowStructType != "" && !tq.ShouldEmitRow {
+			return ""
+		}
+		rowStructType := tq.RowStructType
+		if rowStructType == "" {
+			rowStructType = tq.Name + "Row"
+		}
 		sb := &strings.Builder{}
 		sb.WriteString("\n\ntype ")
-		sb.WriteString(tq.Name)
-		sb.WriteString("Row struct {\n")
+		sb.WriteString(rowStructType)
+		sb.WriteString(" struct {\n")
 		maxNameLen, maxTypeLen := getLongestOutput(tq.Outputs)
 		for _, out := range tq.Outputs {
 			// Name
@@ -564,25 +552,4 @@ func (tq TemplatedQuery) EmitRowStruct() string {
 	default:
 		panic("unhandled result type: " + tq.ResultKind)
 	}
-}
-
-// EmitRowGetterMethods writes projection getter methods for a multi-column
-// output row.
-func (tq TemplatedQuery) EmitRowGetterMethods() string {
-	if !tq.hasProjection() {
-		return ""
-	}
-	sb := &strings.Builder{}
-	for _, out := range tq.Outputs {
-		sb.WriteString("\n\nfunc (r *")
-		sb.WriteString(tq.Name)
-		sb.WriteString("Row) ")
-		sb.WriteString(out.GetterName)
-		sb.WriteString("() ")
-		sb.WriteString(out.QualType)
-		sb.WriteString(" { return r.")
-		sb.WriteString(out.UpperName)
-		sb.WriteString(" }")
-	}
-	return sb.String()
 }

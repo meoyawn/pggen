@@ -36,6 +36,9 @@ type TypedQuery struct {
 	// Qualified protocol buffer message type to use for each output row, like
 	// "erp.api.Product". If empty, generate our own Row type.
 	ProtobufType string
+	// Shared row struct name prefix, emitted as <RowType>Row. If empty, generate
+	// query-specific row types when needed.
+	RowType string
 }
 
 // InputParam is an input parameter for a prepared query.
@@ -99,6 +102,7 @@ func (inf *Inferrer) InferTypes(query *ast.SourceQuery) (TypedQuery, error) {
 		Inputs:       inputs,
 		Outputs:      outputs,
 		ProtobufType: query.Pragmas.ProtobufType,
+		RowType:      query.Pragmas.RowType,
 	}, nil
 }
 

@@ -14,10 +14,10 @@ type QueryName struct{}
 // Querier is a typesafe Go interface backed by SQL queries.
 type Querier interface {
 	// FindAuthorById finds one (or zero) authors by ID.
-	FindAuthorByID(ctx context.Context, authorID int32) (FindAuthorByIDRow, error)
+	FindAuthorByID(ctx context.Context, authorID int32) (AuthorRow, error)
 
 	// FindAuthors finds authors by first name.
-	FindAuthors(ctx context.Context, firstName string) ([]FindAuthorsRow, error)
+	FindAuthors(ctx context.Context, firstName string) ([]AuthorRow, error)
 
 	// FindAuthorNames finds one (or zero) authors by ID.
 	FindAuthorNames(ctx context.Context, authorID int32) ([]FindAuthorNamesRow, error)
@@ -103,40 +103,25 @@ func addTypeToRegister(typ string) struct{} {
 
 const findAuthorByIDSQL = `SELECT * FROM author WHERE author_id = $1;`
 
-type FindAuthorByIDProjection interface {
-	GetAuthorID() int32
-	GetFirstName() string
-	GetLastName() string
-	GetSuffix() *string
-}
-
-type FindAuthorByIDRow struct {
+type AuthorRow struct {
 	AuthorID  int32   `json:"author_id" db:"author_id"`
 	FirstName string  `json:"first_name" db:"first_name"`
 	LastName  string  `json:"last_name" db:"last_name"`
 	Suffix    *string `json:"suffix" db:"suffix"`
 }
 
-func (r *FindAuthorByIDRow) GetAuthorID() int32 { return r.AuthorID }
-
-func (r *FindAuthorByIDRow) GetFirstName() string { return r.FirstName }
-
-func (r *FindAuthorByIDRow) GetLastName() string { return r.LastName }
-
-func (r *FindAuthorByIDRow) GetSuffix() *string { return r.Suffix }
-
 // FindAuthorByID implements Querier.FindAuthorByID.
-func (q *DBQuerier) FindAuthorByID(ctx context.Context, authorID int32) (FindAuthorByIDRow, error) {
+func (q *DBQuerier) FindAuthorByID(ctx context.Context, authorID int32) (AuthorRow, error) {
 	ctx = context.WithValue(ctx, QueryName{}, "FindAuthorByID")
 	rows, err := q.conn.Query(ctx, findAuthorByIDSQL, authorID)
 	if err != nil {
-		var zero FindAuthorByIDRow
+		var zero AuthorRow
 		return zero, fmt.Errorf("query FindAuthorByID: %w", err)
 	}
 
-	result, err := pgx.CollectOneRow(rows, pgx.RowToStructByName[FindAuthorByIDRow])
+	result, err := pgx.CollectOneRow(rows, pgx.RowToStructByName[AuthorRow])
 	if err != nil {
-		var zero FindAuthorByIDRow
+		var zero AuthorRow
 		return zero, fmt.Errorf("query FindAuthorByID: %w", err)
 	}
 	return result, nil
@@ -144,40 +129,18 @@ func (q *DBQuerier) FindAuthorByID(ctx context.Context, authorID int32) (FindAut
 
 const findAuthorsSQL = `SELECT * FROM author WHERE first_name = $1;`
 
-type FindAuthorsProjection interface {
-	GetAuthorID() int32
-	GetFirstName() string
-	GetLastName() string
-	GetSuffix() *string
-}
-
-type FindAuthorsRow struct {
-	AuthorID  int32   `json:"author_id" db:"author_id"`
-	FirstName string  `json:"first_name" db:"first_name"`
-	LastName  string  `json:"last_name" db:"last_name"`
-	Suffix    *string `json:"suffix" db:"suffix"`
-}
-
-func (r *FindAuthorsRow) GetAuthorID() int32 { return r.AuthorID }
-
-func (r *FindAuthorsRow) GetFirstName() string { return r.FirstName }
-
-func (r *FindAuthorsRow) GetLastName() string { return r.LastName }
-
-func (r *FindAuthorsRow) GetSuffix() *string { return r.Suffix }
-
 // FindAuthors implements Querier.FindAuthors.
-func (q *DBQuerier) FindAuthors(ctx context.Context, firstName string) ([]FindAuthorsRow, error) {
+func (q *DBQuerier) FindAuthors(ctx context.Context, firstName string) ([]AuthorRow, error) {
 	ctx = context.WithValue(ctx, QueryName{}, "FindAuthors")
 	rows, err := q.conn.Query(ctx, findAuthorsSQL, firstName)
 	if err != nil {
-		var zero []FindAuthorsRow
+		var zero []AuthorRow
 		return zero, fmt.Errorf("query FindAuthors: %w", err)
 	}
 
-	result, err := pgx.CollectRows(rows, pgx.RowToStructByName[FindAuthorsRow])
+	result, err := pgx.CollectRows(rows, pgx.RowToStructByName[AuthorRow])
 	if err != nil {
-		var zero []FindAuthorsRow
+		var zero []AuthorRow
 		return zero, fmt.Errorf("scan FindAuthors row: %w", err)
 	}
 	return result, nil
@@ -185,19 +148,10 @@ func (q *DBQuerier) FindAuthors(ctx context.Context, firstName string) ([]FindAu
 
 const findAuthorNamesSQL = `SELECT first_name, last_name FROM author ORDER BY author_id = $1;`
 
-type FindAuthorNamesProjection interface {
-	GetFirstName() *string
-	GetLastName() *string
-}
-
 type FindAuthorNamesRow struct {
 	FirstName *string `json:"first_name" db:"first_name"`
 	LastName  *string `json:"last_name" db:"last_name"`
 }
-
-func (r *FindAuthorNamesRow) GetFirstName() *string { return r.FirstName }
-
-func (r *FindAuthorNamesRow) GetLastName() *string { return r.LastName }
 
 // FindAuthorNames implements Querier.FindAuthorNames.
 func (q *DBQuerier) FindAuthorNames(ctx context.Context, authorID int32) ([]FindAuthorNamesRow, error) {
@@ -237,27 +191,12 @@ func (q *DBQuerier) FindFirstNames(ctx context.Context, authorID int32) ([]*stri
 
 const findFirstAuthorSQL = `SELECT * FROM author ORDER BY author_id;`
 
-type FindFirstAuthorProjection interface {
-	GetAuthorID() *int32
-	GetFirstName() *string
-	GetLastName() *string
-	GetSuffix() *string
-}
-
 type FindFirstAuthorRow struct {
 	AuthorID  *int32  `json:"author_id" db:"author_id"`
 	FirstName *string `json:"first_name" db:"first_name"`
 	LastName  *string `json:"last_name" db:"last_name"`
 	Suffix    *string `json:"suffix" db:"suffix"`
 }
-
-func (r *FindFirstAuthorRow) GetAuthorID() *int32 { return r.AuthorID }
-
-func (r *FindFirstAuthorRow) GetFirstName() *string { return r.FirstName }
-
-func (r *FindFirstAuthorRow) GetLastName() *string { return r.LastName }
-
-func (r *FindFirstAuthorRow) GetSuffix() *string { return r.Suffix }
 
 // FindFirstAuthor implements Querier.FindFirstAuthor.
 func (q *DBQuerier) FindFirstAuthor(ctx context.Context) (FindFirstAuthorRow, error) {
@@ -353,27 +292,12 @@ type InsertAuthorSuffixParams struct {
 	Suffix    string `json:"Suffix"`
 }
 
-type InsertAuthorSuffixProjection interface {
-	GetAuthorID() int32
-	GetFirstName() string
-	GetLastName() string
-	GetSuffix() *string
-}
-
 type InsertAuthorSuffixRow struct {
 	AuthorID  int32   `json:"author_id" db:"author_id"`
 	FirstName string  `json:"first_name" db:"first_name"`
 	LastName  string  `json:"last_name" db:"last_name"`
 	Suffix    *string `json:"suffix" db:"suffix"`
 }
-
-func (r *InsertAuthorSuffixRow) GetAuthorID() int32 { return r.AuthorID }
-
-func (r *InsertAuthorSuffixRow) GetFirstName() string { return r.FirstName }
-
-func (r *InsertAuthorSuffixRow) GetLastName() string { return r.LastName }
-
-func (r *InsertAuthorSuffixRow) GetSuffix() *string { return r.Suffix }
 
 // InsertAuthorSuffix implements Querier.InsertAuthorSuffix.
 func (q *DBQuerier) InsertAuthorSuffix(ctx context.Context, params InsertAuthorSuffixParams) (InsertAuthorSuffixRow, error) {

@@ -1,4 +1,4 @@
--- name: FindOrdersByPrice :many
+-- name: FindOrdersByPrice :many row=Order
 SELECT * FROM orders WHERE order_total > pggen.arg('MinTotal');
 
 -- name: FindOrdersMRR :many

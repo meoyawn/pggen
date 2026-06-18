@@ -23,7 +23,7 @@ func TestNewQuerier_FindAuthorByID(t *testing.T) {
 	t.Run("FindAuthorByID", func(t *testing.T) {
 		authorByID, err := q.FindAuthorByID(t.Context(), adamsID)
 		require.NoError(t, err)
-		assert.Equal(t, FindAuthorByIDRow{
+		assert.Equal(t, AuthorRow{
 			AuthorID:  adamsID,
 			FirstName: "john",
 			LastName:  "adams",
@@ -53,7 +53,7 @@ func TestNewQuerier_FindAuthors(t *testing.T) {
 	t.Run("FindAuthors - 1 row - john", func(t *testing.T) {
 		authors, err := q.FindAuthors(t.Context(), "john")
 		require.NoError(t, err)
-		want := []FindAuthorsRow{
+		want := []AuthorRow{
 			{
 				AuthorID:  adamsID,
 				FirstName: "john",
@@ -73,7 +73,7 @@ func TestNewQuerier_FindAuthors(t *testing.T) {
 		require.NoError(t, err)
 		authors, err := q.FindAuthors(t.Context(), "bill")
 		require.NoError(t, err)
-		want := []FindAuthorsRow{
+		want := []AuthorRow{
 			{
 				AuthorID:  insRow.AuthorID,
 				FirstName: "bill",
@@ -87,7 +87,7 @@ func TestNewQuerier_FindAuthors(t *testing.T) {
 	t.Run("FindAuthors - 2 rows - george", func(t *testing.T) {
 		authors, err := q.FindAuthors(t.Context(), "george")
 		require.NoError(t, err)
-		want := []FindAuthorsRow{
+		want := []AuthorRow{
 			{AuthorID: washingtonID, FirstName: "george", LastName: "washington", Suffix: nil},
 			{AuthorID: carverID, FirstName: "george", LastName: "carver", Suffix: nil},
 		}
@@ -97,7 +97,7 @@ func TestNewQuerier_FindAuthors(t *testing.T) {
 	t.Run("FindAuthors - 0 rows - joe", func(t *testing.T) {
 		authors, err := q.FindAuthors(t.Context(), "joe")
 		require.NoError(t, err)
-		assert.Equal(t, []FindAuthorsRow{}, authors)
+		assert.Equal(t, []AuthorRow{}, authors)
 	})
 }
 
@@ -201,7 +201,7 @@ func TestNewQuerier_DeleteAuthorsByFullName(t *testing.T) {
 
 		authors, err := q.FindAuthors(t.Context(), "george")
 		require.NoError(t, err)
-		want := []FindAuthorsRow{
+		want := []AuthorRow{
 			{
 				AuthorID:  washingtonID,
 				FirstName: "george",

@@ -112,19 +112,10 @@ var _ = addTypeToRegister("\"_device_type\"")
 const findAllDevicesSQL = `SELECT mac, type
 FROM device;`
 
-type FindAllDevicesProjection interface {
-	GetMac() net.HardwareAddr
-	GetType() DeviceType
-}
-
 type FindAllDevicesRow struct {
 	Mac  net.HardwareAddr `json:"mac" db:"mac"`
 	Type DeviceType       `json:"type" db:"type"`
 }
-
-func (r *FindAllDevicesRow) GetMac() net.HardwareAddr { return r.Mac }
-
-func (r *FindAllDevicesRow) GetType() DeviceType { return r.Type }
 
 // FindAllDevices implements Querier.FindAllDevices.
 func (q *DBQuerier) FindAllDevices(ctx context.Context) ([]FindAllDevicesRow, error) {
@@ -200,19 +191,10 @@ const findManyDeviceArrayWithNumSQL = `SELECT 1 AS num, enum_range('ipad'::devic
 UNION ALL
 SELECT 2 as num, enum_range(NULL::device_type) AS device_types;`
 
-type FindManyDeviceArrayWithNumProjection interface {
-	GetNum() *int32
-	GetDeviceTypes() []DeviceType
-}
-
 type FindManyDeviceArrayWithNumRow struct {
 	Num         *int32       `json:"num" db:"num"`
 	DeviceTypes []DeviceType `json:"device_types" db:"device_types"`
 }
-
-func (r *FindManyDeviceArrayWithNumRow) GetNum() *int32 { return r.Num }
-
-func (r *FindManyDeviceArrayWithNumRow) GetDeviceTypes() []DeviceType { return r.DeviceTypes }
 
 // FindManyDeviceArrayWithNum implements Querier.FindManyDeviceArrayWithNum.
 func (q *DBQuerier) FindManyDeviceArrayWithNum(ctx context.Context) ([]FindManyDeviceArrayWithNumRow, error) {

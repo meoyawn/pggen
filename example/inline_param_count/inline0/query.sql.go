@@ -103,27 +103,12 @@ type FindAuthorByIDParams struct {
 	AuthorID int32 `json:"AuthorID"`
 }
 
-type FindAuthorByIDProjection interface {
-	GetAuthorID() int32
-	GetFirstName() string
-	GetLastName() string
-	GetSuffix() *string
-}
-
 type FindAuthorByIDRow struct {
 	AuthorID  int32   `json:"author_id" db:"author_id"`
 	FirstName string  `json:"first_name" db:"first_name"`
 	LastName  string  `json:"last_name" db:"last_name"`
 	Suffix    *string `json:"suffix" db:"suffix"`
 }
-
-func (r *FindAuthorByIDRow) GetAuthorID() int32 { return r.AuthorID }
-
-func (r *FindAuthorByIDRow) GetFirstName() string { return r.FirstName }
-
-func (r *FindAuthorByIDRow) GetLastName() string { return r.LastName }
-
-func (r *FindAuthorByIDRow) GetSuffix() *string { return r.Suffix }
 
 // FindAuthorByID implements Querier.FindAuthorByID.
 func (q *DBQuerier) FindAuthorByID(ctx context.Context, params FindAuthorByIDParams) (FindAuthorByIDRow, error) {

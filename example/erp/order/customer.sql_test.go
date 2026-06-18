@@ -39,7 +39,7 @@ func TestNewQuerier_FindOrdersByCustomer(t *testing.T) {
 	t.Run("FindOrdersByCustomer", func(t *testing.T) {
 		orders, err := q.FindOrdersByCustomer(t.Context(), cust1.CustomerID)
 		require.NoError(t, err)
-		assert.Equal(t, []FindOrdersByCustomerRow{
+		assert.Equal(t, []OrderRow{
 			{
 				OrderID:    order1.OrderID,
 				OrderDate:  order1.OrderDate,

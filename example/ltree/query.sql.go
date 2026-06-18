@@ -153,19 +153,10 @@ const findLtreeInputSQL = `SELECT
   -- that we need a text array that Postgres then converts to ltree[].
   ($2::text[])::ltree[] AS text_arr;`
 
-type FindLtreeInputProjection interface {
-	GetLtree() pgtype.Text
-	GetTextArr() pgtype.Array[pgtype.Text]
-}
-
 type FindLtreeInputRow struct {
 	Ltree   pgtype.Text               `json:"ltree" db:"ltree"`
 	TextArr pgtype.Array[pgtype.Text] `json:"text_arr" db:"text_arr"`
 }
-
-func (r *FindLtreeInputRow) GetLtree() pgtype.Text { return r.Ltree }
-
-func (r *FindLtreeInputRow) GetTextArr() pgtype.Array[pgtype.Text] { return r.TextArr }
 
 // FindLtreeInput implements Querier.FindLtreeInput.
 func (q *DBQuerier) FindLtreeInput(ctx context.Context, inLtree pgtype.Text, inLtreeArray []string) (FindLtreeInputRow, error) {

@@ -5,70 +5,86 @@ import (
 
 	"github.com/meoyawn/pggen/internal/ast"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
-func TestResolveProjectionGetterNames(t *testing.T) {
-	cols := resolveProjectionGetterNames([]TemplatedColumn{
-		{UpperName: "ID"},
-		{UpperName: "GetID"},
-		{UpperName: "Foo"},
-		{UpperName: "FooValue"},
-		{UpperName: "GetFoo"},
-		{UpperName: "GetFooValue"},
-		{UpperName: "Bar"},
-		{UpperName: "Bar"},
-	})
-
-	got := make([]string, 0, len(cols))
-	for _, col := range cols {
-		got = append(got, col.GetterName)
-	}
-
-	assert.Equal(t, []string{
-		"GetIDValue",
-		"GetGetID",
-		"GetFooValue2",
-		"GetFooValueValue",
-		"GetGetFoo",
-		"GetGetFooValue",
-		"GetBar",
-		"GetBarValue",
-	}, got)
-}
-
-func TestTemplatedQuery_EmitProjection(t *testing.T) {
+func TestTemplatedQuery_EmitRowStructUsesSharedRowType(t *testing.T) {
 	query := TemplatedQuery{
-		Name:       "FindAuthors",
-		ResultKind: ast.ResultKindMany,
+		Name:          "FindAuthors",
+		RowStructType: "AuthorRow",
+		ShouldEmitRow: true,
+		ResultKind:    ast.ResultKindMany,
 		Outputs: []TemplatedColumn{
-			{UpperName: "AuthorID", GetterName: "GetAuthorID", QualType: "int"},
-			{UpperName: "Name", GetterName: "GetName", QualType: "string"},
+			{PgName: "author_id", UpperName: "AuthorID", QualType: "int"},
+			{PgName: "name", UpperName: "Name", QualType: "string"},
 		},
 	}
 
-	assert.Equal(t, `
-
-type FindAuthorsProjection interface {
-	GetAuthorID() int
-	GetName() string
-}`, query.EmitProjectionInterface())
-
-	assert.Equal(t, `
-
-func (r *FindAuthorsRow) GetAuthorID() int { return r.AuthorID }
-
-func (r *FindAuthorsRow) GetName() string { return r.Name }`, query.EmitRowGetterMethods())
+	assert.Contains(t, query.EmitRowStruct(), "type AuthorRow struct {")
 }
 
-func TestTemplatedQuery_EmitProjectionSkipsSingleColumn(t *testing.T) {
-	query := TemplatedQuery{
-		Name:       "FindAuthorID",
-		ResultKind: ast.ResultKindMany,
-		Outputs: []TemplatedColumn{
-			{UpperName: "AuthorID", GetterName: "GetAuthorID", QualType: "int"},
+func TestAssignSharedRowStructs(t *testing.T) {
+	files := []TemplatedFile{
+		{
+			Queries: []TemplatedQuery{
+				{
+					Name:          "FindAuthorByID",
+					RowType:       "Author",
+					RowStructType: "FindAuthorByIDRow",
+					ShouldEmitRow: true,
+					Outputs: []TemplatedColumn{
+						{PgName: "author_id", UpperName: "AuthorID", QualType: "int32"},
+						{PgName: "name", UpperName: "Name", QualType: "string"},
+					},
+				},
+				{
+					Name:          "FindAuthors",
+					RowType:       "Author",
+					RowStructType: "FindAuthorsRow",
+					ShouldEmitRow: true,
+					Outputs: []TemplatedColumn{
+						{PgName: "author_id", UpperName: "AuthorID", QualType: "int32"},
+						{PgName: "name", UpperName: "Name", QualType: "string"},
+					},
+				},
+			},
 		},
 	}
 
-	assert.Empty(t, query.EmitProjectionInterface())
-	assert.Empty(t, query.EmitRowGetterMethods())
+	require.NoError(t, assignSharedRowStructs(files))
+	assert.Equal(t, "AuthorRow", files[0].Queries[0].RowStructType)
+	assert.True(t, files[0].Queries[0].ShouldEmitRow)
+	assert.Equal(t, "AuthorRow", files[0].Queries[1].RowStructType)
+	assert.False(t, files[0].Queries[1].ShouldEmitRow)
+}
+
+func TestAssignSharedRowStructsRejectsIncompatibleShapes(t *testing.T) {
+	files := []TemplatedFile{
+		{
+			Queries: []TemplatedQuery{
+				{
+					Name:    "FindAuthorByID",
+					RowType: "Author",
+					Outputs: []TemplatedColumn{
+						{PgName: "author_id", UpperName: "AuthorID", QualType: "int32"},
+						{PgName: "name", UpperName: "Name", QualType: "string"},
+					},
+				},
+				{
+					Name:    "FindAuthors",
+					RowType: "Author",
+					Outputs: []TemplatedColumn{
+						{PgName: "author_id", UpperName: "AuthorID", QualType: "int32"},
+						{PgName: "name", UpperName: "Name", QualType: "*string", Nullable: true},
+					},
+				},
+			},
+		},
+	}
+
+	err := assignSharedRowStructs(files)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "row=Author used by incompatible queries FindAuthorByID and FindAuthors")
+	assert.Contains(t, err.Error(), `pg="name" field=Name type=string nullable=false`)
+	assert.Contains(t, err.Error(), `pg="name" field=Name type=*string nullable=true`)
 }

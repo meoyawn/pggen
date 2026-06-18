@@ -63,6 +63,9 @@ func (tm Templater) TemplateAll(files []codegen.QueryFile) ([]TemplatedFile, err
 		goQueryFiles = append(goQueryFiles, goFile)
 		allDeclarers.AddAll(decls.ListAll()...)
 	}
+	if err := assignSharedRowStructs(goQueryFiles); err != nil {
+		return nil, err
+	}
 
 	// Add declarers to leader file.
 	goQueryFiles[firstIndex].Declarers = allDeclarers.ListAll()
@@ -179,22 +182,36 @@ func (tm Templater) templateFile(file codegen.QueryFile, isLeader bool) (Templat
 				LowerName: tm.chooseLowerName(out.PgName, "UnnamedColumn", i, len(query.Outputs)),
 				Type:      goType,
 				QualType:  gotype.QualifyType(goType, pkgPath),
+				Nullable:  out.Nullable,
 			}
 			ds := FindOutputDeclarers(goType).ListAll()
 			declarers.AddAll(ds...)
 		}
 
 		nonVoidCols := removeVoidColumns(outputs)
-		nonVoidCols = resolveProjectionGetterNames(nonVoidCols)
 		resultKind := query.ResultKind
 		if len(nonVoidCols) == 0 {
 			resultKind = ast.ResultKindExec
 		}
+		rowType := ""
+		if query.RowType != "" {
+			rowType = tm.caser.ToUpperGoIdent(query.RowType)
+			if rowType == "" {
+				return TemplatedFile{}, nil, fmt.Errorf("query %s has invalid row pragma %q", query.Name, query.RowType)
+			}
+			if resultKind == ast.ResultKindExec {
+				return TemplatedFile{}, nil, fmt.Errorf("query %s uses row=%s with %s; row is only supported for result queries", query.Name, query.RowType, query.ResultKind)
+			}
+		}
 		if resultKind != ast.ResultKindExec {
 			imports.AddPackage("github.com/jackc/pgx/v5")
 		}
+		name := tm.caser.ToUpperGoIdent(query.Name)
 		queries = append(queries, TemplatedQuery{
-			Name:             tm.caser.ToUpperGoIdent(query.Name),
+			Name:             name,
+			RowType:          rowType,
+			RowStructType:    name + "Row",
+			ShouldEmitRow:    true,
 			SQLVarName:       tm.caser.ToLowerGoIdent(query.Name) + "SQL",
 			ResultKind:       resultKind,
 			Doc:              docs.String(),
@@ -258,27 +275,74 @@ func removeVoidColumns(cols []TemplatedColumn) []TemplatedColumn {
 	return outs
 }
 
-func resolveProjectionGetterNames(cols []TemplatedColumn) []TemplatedColumn {
-	used := make(map[string]struct{}, len(cols)*2)
-	for _, col := range cols {
-		used[col.UpperName] = struct{}{}
-	}
-	for i, col := range cols {
-		name := "Get" + col.UpperName
-		if _, ok := used[name]; ok {
-			base := name + "Value"
-			name = base
-			for suffix := 2; hasIdentifier(used, name); suffix++ {
-				name = base + strconv.Itoa(suffix)
-			}
-		}
-		cols[i].GetterName = name
-		used[name] = struct{}{}
-	}
-	return cols
+type sharedRowShape struct {
+	QueryName string
+	Columns   []sharedRowColumn
 }
 
-func hasIdentifier(used map[string]struct{}, name string) bool {
-	_, ok := used[name]
-	return ok
+type sharedRowColumn struct {
+	PgName    string
+	UpperName string
+	QualType  string
+	Nullable  bool
+}
+
+func assignSharedRowStructs(files []TemplatedFile) error {
+	seen := make(map[string]sharedRowShape)
+	for fileIdx := range files {
+		for queryIdx := range files[fileIdx].Queries {
+			query := &files[fileIdx].Queries[queryIdx]
+			if query.RowType == "" || len(query.Outputs) <= 1 {
+				continue
+			}
+
+			query.RowStructType = query.RowType + "Row"
+			shape := makeSharedRowShape(*query)
+			prev, ok := seen[query.RowType]
+			if !ok {
+				seen[query.RowType] = shape
+				continue
+			}
+			if diff := compareSharedRowShape(prev, shape); diff != "" {
+				return fmt.Errorf("row=%s used by incompatible queries %s and %s: %s", query.RowType, prev.QueryName, query.Name, diff)
+			}
+			query.ShouldEmitRow = false
+		}
+	}
+	return nil
+}
+
+func makeSharedRowShape(query TemplatedQuery) sharedRowShape {
+	cols := make([]sharedRowColumn, len(query.Outputs))
+	for i, col := range query.Outputs {
+		cols[i] = sharedRowColumn{
+			PgName:    col.PgName,
+			UpperName: col.UpperName,
+			QualType:  col.QualType,
+			Nullable:  col.Nullable,
+		}
+	}
+	return sharedRowShape{
+		QueryName: query.Name,
+		Columns:   cols,
+	}
+}
+
+func compareSharedRowShape(want sharedRowShape, got sharedRowShape) string {
+	if len(want.Columns) != len(got.Columns) {
+		return fmt.Sprintf("column count differs: %s has %d columns, %s has %d columns",
+			want.QueryName, len(want.Columns), got.QueryName, len(got.Columns))
+	}
+	for i := range want.Columns {
+		if want.Columns[i] == got.Columns[i] {
+			continue
+		}
+		return fmt.Sprintf("column %d differs: %s has %s, %s has %s",
+			i+1, want.QueryName, describeSharedRowColumn(want.Columns[i]), got.QueryName, describeSharedRowColumn(got.Columns[i]))
+	}
+	return ""
+}
+
+func describeSharedRowColumn(col sharedRowColumn) string {
+	return fmt.Sprintf("pg=%q field=%s type=%s nullable=%t", col.PgName, col.UpperName, col.QualType, col.Nullable)
 }

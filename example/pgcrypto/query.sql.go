@@ -86,19 +86,10 @@ func (q *DBQuerier) CreateUser(ctx context.Context, email string, password strin
 const findUserSQL = `SELECT email, pass from "user"
 where email = $1;`
 
-type FindUserProjection interface {
-	GetEmail() string
-	GetPass() string
-}
-
 type FindUserRow struct {
 	Email string `json:"email" db:"email"`
 	Pass  string `json:"pass" db:"pass"`
 }
-
-func (r *FindUserRow) GetEmail() string { return r.Email }
-
-func (r *FindUserRow) GetPass() string { return r.Pass }
 
 // FindUser implements Querier.FindUser.
 func (q *DBQuerier) FindUser(ctx context.Context, email string) (FindUserRow, error) {
