@@ -73,6 +73,16 @@ func (tf *TypeFetcher) FindTypesByOIDs(oids ...uint32) (map[uint32]Type, error) 
 		delete(uncached, arr.ID)
 	}
 
+	domains, err := tf.findDomainTypes(ctx, uncached)
+	if err != nil {
+		return nil, fmt.Errorf("find domain types: %w", err)
+	}
+	for _, domain := range domains {
+		types[domain.ID] = domain
+		tf.cache.addType(domain)
+		delete(uncached, domain.ID)
+	}
+
 	unknowns, err := tf.findUnknownTypes(ctx, uncached)
 	if err != nil {
 		return nil, fmt.Errorf("find unknown types: %w", err)
@@ -87,9 +97,48 @@ func (tf *TypeFetcher) FindTypesByOIDs(oids ...uint32) (map[uint32]Type, error) 
 	if err := tf.resolvePlaceholderTypes(types); err != nil {
 		return nil, err
 	}
+	for _, typ := range types {
+		tf.cache.addType(typ)
+	}
 
 	if len(uncached) > 0 {
 		return nil, fmt.Errorf("had %d unclassified types: %v", len(uncached), uncached)
+	}
+	return types, nil
+}
+
+func (tf *TypeFetcher) findDomainTypes(ctx context.Context, uncached map[uint32]struct{}) ([]DomainType, error) {
+	oids := oidKeys(uncached)
+	rows, err := tf.querier.FindDomainTypes(ctx, oids)
+	if err != nil {
+		return nil, fmt.Errorf("find domain oid types: %w", err)
+	}
+	types := make([]DomainType, len(rows))
+	for i, row := range rows {
+		isNotNull := false
+		if row.IsNotNull != nil {
+			isNotNull = *row.IsNotNull
+		}
+		hasDefault := false
+		if row.HasDefault != nil {
+			hasDefault = *row.HasDefault
+		}
+		dimensions := 0
+		if row.Dimensions != nil {
+			dimensions = int(*row.Dimensions)
+		}
+		baseType, ok := tf.cache.getOID(row.BaseOID)
+		if !ok {
+			baseType = placeholderType{ID: row.BaseOID}
+		}
+		types[i] = DomainType{
+			ID:         row.OID,
+			Name:       row.TypeName,
+			IsNotNull:  isNotNull,
+			HasDefault: hasDefault,
+			BaseType:   baseType,
+			Dimensions: dimensions,
+		}
 	}
 	return types, nil
 }
@@ -222,6 +271,13 @@ func (tf *TypeFetcher) resolvePlaceholderTypes(knownTypes map[uint32]Type) error
 				return nil, fmt.Errorf("array %q elem: %w", typ.Name, err)
 			}
 			typ.Elem = newType
+			return typ, nil
+		case DomainType:
+			newType, err := resolveType(typ.BaseType)
+			if err != nil {
+				return nil, fmt.Errorf("domain %q base: %w", typ.Name, err)
+			}
+			typ.BaseType = newType
 			return typ, nil
 		case placeholderType:
 			newType, ok := knownTypes[typ.ID]

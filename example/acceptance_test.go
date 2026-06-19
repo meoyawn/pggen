@@ -199,6 +199,7 @@ func TestExamples(t *testing.T) {
 				"--go-type", "int8=github.com/meoyawn/pggen/example/custom_types.CustomInt",
 				"--go-type", "my_int=int",
 				"--go-type", "_my_int=[]int",
+				"--go-type", "show_id=github.com/meoyawn/pggen/example/custom_types.ShowID",
 			},
 		},
 		{

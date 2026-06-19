@@ -30,12 +30,22 @@ func TestInferrer_InferTypes(t *testing.T) {
 		);
 
 		CREATE DOMAIN us_postal_code AS text;
+
+		CREATE DOMAIN show_id AS text
+			DEFAULT 'shw_default'
+			CHECK (VALUE ~ '^shw_');
+
+		CREATE TABLE shows (
+			id show_id PRIMARY KEY
+		);
 	`))
 	defer cleanupFunc()
 	q := pg.NewQuerier(conn)
 	deviceTypeOID, err := q.FindOIDByName(t.Context(), "device_type")
 	require.NoError(t, err)
 	deviceTypeArrOID, err := q.FindOIDByName(t.Context(), "_device_type")
+	require.NoError(t, err)
+	showIDTypeOID, err := q.FindOIDByName(t.Context(), "show_id")
 	require.NoError(t, err)
 
 	tests := []struct {
@@ -90,6 +100,29 @@ func TestInferrer_InferTypes(t *testing.T) {
 				Outputs: []OutputColumn{{
 					PgName:   "us_postal_code",
 					PgType:   pg.Text,
+					Nullable: false,
+				}},
+			},
+		},
+		{
+			name: "table column domain type",
+			query: &ast.SourceQuery{
+				Name:        "CreateShow",
+				PreparedSQL: "INSERT INTO shows DEFAULT VALUES RETURNING id",
+				ResultKind:  ast.ResultKindOne,
+			},
+			want: TypedQuery{
+				Name:        "CreateShow",
+				ResultKind:  ast.ResultKindOne,
+				PreparedSQL: "INSERT INTO shows DEFAULT VALUES RETURNING id",
+				Outputs: []OutputColumn{{
+					PgName: "id",
+					PgType: pg.DomainType{
+						ID:         showIDTypeOID,
+						Name:       "show_id",
+						HasDefault: true,
+						BaseType:   pg.Text,
+					},
 					Nullable: false,
 				}},
 			},

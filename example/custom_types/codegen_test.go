@@ -28,6 +28,7 @@ func TestGenerate_Go_Example_CustomTypes(t *testing.T) {
 				"int8":    "github.com/meoyawn/pggen/example/custom_types.CustomInt",
 				"my_int":  "int",
 				"_my_int": "[]int",
+				"show_id": "github.com/meoyawn/pggen/example/custom_types.ShowID",
 			},
 		})
 	if err != nil {

@@ -181,6 +181,10 @@ func (inf *Inferrer) prepareTypes(query *ast.SourceQuery) (_a []InputParam, _ []
 	if err != nil {
 		return nil, nil, fmt.Errorf("fetch oid types: %w", err)
 	}
+	outputColumnsMeta, err := inf.fetchOutputColumns(stmtDesc.Fields)
+	if err != nil {
+		return nil, nil, fmt.Errorf("fetch output columns: %w", err)
+	}
 
 	// Output nullability.
 	nullables, err := inf.inferOutputNullability(query, stmtDesc.Fields)
@@ -195,6 +199,9 @@ func (inf *Inferrer) prepareTypes(query *ast.SourceQuery) (_a []InputParam, _ []
 		if !ok {
 			return nil, nil, fmt.Errorf("no postgrestype name found for column %s with oid %d", desc.Name, desc.DataTypeOID)
 		}
+		if outputColumnsMeta[i].Type != nil {
+			pgType = outputColumnsMeta[i].Type
+		}
 		outputColumns = append(outputColumns, OutputColumn{
 			PgName:   desc.Name,
 			PgType:   pgType,
@@ -202,6 +209,23 @@ func (inf *Inferrer) prepareTypes(query *ast.SourceQuery) (_a []InputParam, _ []
 		})
 	}
 	return inputParams, outputColumns, nil
+}
+
+func (inf *Inferrer) fetchOutputColumns(descs []pgconn.FieldDescription) ([]pg.Column, error) {
+	columnKeys := make([]pg.ColumnKey, len(descs))
+	for i, desc := range descs {
+		if desc.TableOID > 0 {
+			columnKeys[i] = pg.ColumnKey{
+				TableOID: desc.TableOID,
+				Number:   desc.TableAttributeNumber,
+			}
+		}
+	}
+	cols, err := pg.FetchColumns(inf.conn, columnKeys)
+	if err != nil {
+		return nil, err
+	}
+	return cols, nil
 }
 
 // inferOutputNullability infers which of the output columns produced by the
@@ -215,16 +239,7 @@ func (inf *Inferrer) inferOutputNullability(query *ast.SourceQuery, descs []pgco
 		return nil, err
 	}
 
-	columnKeys := make([]pg.ColumnKey, len(descs))
-	for i, desc := range descs {
-		if desc.TableOID > 0 {
-			columnKeys[i] = pg.ColumnKey{
-				TableOID: desc.TableOID,
-				Number:   desc.TableAttributeNumber,
-			}
-		}
-	}
-	cols, err := pg.FetchColumns(inf.conn, columnKeys)
+	cols, err := inf.fetchOutputColumns(descs)
 	if err != nil {
 		return nil, fmt.Errorf("fetch column for nullability: %w", err)
 	}

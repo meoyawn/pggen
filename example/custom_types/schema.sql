@@ -33,3 +33,11 @@ CREATE TYPE my_int (
   DELIMITER = ',',
   COLLATABLE = FALSE
 );
+
+CREATE DOMAIN show_id AS text
+  DEFAULT 'shw_default'
+  CHECK (VALUE ~ '^shw_');
+
+CREATE TABLE shows (
+  id show_id PRIMARY KEY
+);

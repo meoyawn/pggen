@@ -93,6 +93,12 @@ func (tr TypeResolver) Resolve(pgt pg.Type, nullable bool, pkgPath string) (goty
 			return nil, fmt.Errorf("create composite type: %w", err)
 		}
 		return comp, nil
+	case pg.DomainType:
+		baseType, err := tr.Resolve(pgt.BaseType, nullable, pkgPath)
+		if err != nil {
+			return nil, fmt.Errorf("resolve domain base type for %q: %w", pgt.Name, err)
+		}
+		return baseType, nil
 	}
 
 	return nil, fmt.Errorf("no go type found for Postgres type %s oid=%d", pgt.String(), pgt.OID())

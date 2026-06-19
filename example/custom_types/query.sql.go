@@ -21,6 +21,8 @@ type Querier interface {
 	CustomMyInt(ctx context.Context) (int, error)
 
 	IntArray(ctx context.Context) ([][]int32, error)
+
+	CreateShow(ctx context.Context) (ShowID, error)
 }
 
 var _ Querier = &DBQuerier{}
@@ -152,6 +154,26 @@ func (q *DBQuerier) IntArray(ctx context.Context) ([][]int32, error) {
 	if err != nil {
 		var zero [][]int32
 		return zero, fmt.Errorf("scan IntArray row: %w", err)
+	}
+	return result, nil
+}
+
+const createShowSQL = `INSERT INTO shows DEFAULT VALUES
+RETURNING id;`
+
+// CreateShow implements Querier.CreateShow.
+func (q *DBQuerier) CreateShow(ctx context.Context) (ShowID, error) {
+	ctx = context.WithValue(ctx, QueryName{}, "CreateShow")
+	rows, err := q.conn.Query(ctx, createShowSQL)
+	if err != nil {
+		var zero ShowID
+		return zero, fmt.Errorf("query CreateShow: %w", err)
+	}
+
+	result, err := pgx.CollectOneRow(rows, pgx.RowTo[ShowID])
+	if err != nil {
+		var zero ShowID
+		return zero, fmt.Errorf("query CreateShow: %w", err)
 	}
 	return result, nil
 }

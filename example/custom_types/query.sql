@@ -9,3 +9,7 @@ SELECT '5'::my_int as int5;
 
 -- name: IntArray :many
 SELECT ARRAY ['5', '6', '7']::int[] as ints;
+
+-- name: CreateShow :one
+INSERT INTO shows DEFAULT VALUES
+RETURNING id;

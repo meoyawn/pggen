@@ -17,6 +17,8 @@ type Querier interface {
 
 	FindArrayTypes(ctx context.Context, oids []uint32) ([]FindArrayTypesRow, error)
 
+	FindDomainTypes(ctx context.Context, oids []uint32) ([]FindDomainTypesRow, error)
+
 	// A composite type represents a row or record, defined implicitly for each
 	// table, or explicitly with CREATE TYPE.
 	// https://www.postgresql.org/docs/13/rowtypes.html
@@ -209,6 +211,44 @@ func (q *DBQuerier) FindArrayTypes(ctx context.Context, oids []uint32) ([]FindAr
 	return result, nil
 }
 
+const findDomainTypesSQL = `SELECT
+  typ.oid                     AS oid,
+  typ.typname::text           AS type_name,
+  COALESCE(typ.typnotnull, false)             AS is_not_null,
+  COALESCE(typ.typdefault IS NOT NULL, false) AS has_default,
+  typ.typbasetype             AS base_oid,
+  COALESCE(typ.typndims, 0)                   AS dimensions
+FROM pg_type typ
+WHERE typ.typisdefined
+  AND typ.typtype = 'd'
+  AND typ.oid = ANY ($1::oid[]);`
+
+type FindDomainTypesRow struct {
+	OID        uint32 `json:"oid" db:"oid"`
+	TypeName   string `json:"type_name" db:"type_name"`
+	IsNotNull  *bool  `json:"is_not_null" db:"is_not_null"`
+	HasDefault *bool  `json:"has_default" db:"has_default"`
+	BaseOID    uint32 `json:"base_oid" db:"base_oid"`
+	Dimensions *int32 `json:"dimensions" db:"dimensions"`
+}
+
+// FindDomainTypes implements Querier.FindDomainTypes.
+func (q *DBQuerier) FindDomainTypes(ctx context.Context, oids []uint32) ([]FindDomainTypesRow, error) {
+	ctx = context.WithValue(ctx, QueryName{}, "FindDomainTypes")
+	rows, err := q.conn.Query(ctx, findDomainTypesSQL, oids)
+	if err != nil {
+		var zero []FindDomainTypesRow
+		return zero, fmt.Errorf("query FindDomainTypes: %w", err)
+	}
+
+	result, err := pgx.CollectRows(rows, pgx.RowToStructByName[FindDomainTypesRow])
+	if err != nil {
+		var zero []FindDomainTypesRow
+		return zero, fmt.Errorf("scan FindDomainTypes row: %w", err)
+	}
+	return result, nil
+}
+
 const findCompositeTypesSQL = `WITH table_cols AS (
   SELECT
     cls.relname                                         AS table_name,
@@ -290,6 +330,13 @@ const findDescendantOIDsSQL = `WITH RECURSIVE oid_descs(oid) AS (
     FROM pg_type arr_typ
       JOIN pg_type elem_typ ON arr_typ.typelem = elem_typ.oid
       JOIN all_oids od ON arr_typ.oid = od.oid
+    UNION
+    -- Domain base types.
+    SELECT typ.typbasetype AS oid
+    FROM pg_type typ
+      JOIN all_oids od ON typ.oid = od.oid
+    WHERE typ.typtype = 'd'
+      AND typ.typbasetype > 0
   ) t
 )
 SELECT oid

@@ -73,6 +73,18 @@ WHERE arr_typ.typisdefined
   AND arr_typ.typlen = -1
   AND arr_typ.oid = ANY (pggen.arg('OIDs')::oid[]);
 
+-- name: FindDomainTypes :many
+SELECT
+  typ.oid                     AS oid,
+  typ.typname::text           AS type_name,
+  COALESCE(typ.typnotnull, false)             AS is_not_null,
+  COALESCE(typ.typdefault IS NOT NULL, false) AS has_default,
+  typ.typbasetype             AS base_oid,
+  COALESCE(typ.typndims, 0)                   AS dimensions
+FROM pg_type typ
+WHERE typ.typisdefined
+  AND typ.typtype = 'd'
+  AND typ.oid = ANY (pggen.arg('OIDs')::oid[]);
 
 -- A composite type represents a row or record, defined implicitly for each
 -- table, or explicitly with CREATE TYPE.
@@ -134,6 +146,13 @@ WITH RECURSIVE oid_descs(oid) AS (
     FROM pg_type arr_typ
       JOIN pg_type elem_typ ON arr_typ.typelem = elem_typ.oid
       JOIN all_oids od ON arr_typ.oid = od.oid
+    UNION
+    -- Domain base types.
+    SELECT typ.typbasetype AS oid
+    FROM pg_type typ
+      JOIN all_oids od ON typ.oid = od.oid
+    WHERE typ.typtype = 'd'
+      AND typ.typbasetype > 0
   ) t
 )
 SELECT oid

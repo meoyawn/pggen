@@ -76,6 +76,7 @@ func FetchColumns(conn *pgx.Conn, keys []ColumnKey) ([]Column, error) {
 					 cls.relname     AS table_name,
 					 attr.attname    AS col_name,
 					 attr.attnum     AS col_num,
+					 attr.atttypid   AS col_type_oid,
 					 attr.attnotnull AS col_null
 		FROM pg_class cls
 					 JOIN pg_attribute attr ON (attr.attrelid = cls.oid)
@@ -87,18 +88,44 @@ func FetchColumns(conn *pgx.Conn, keys []ColumnKey) ([]Column, error) {
 		return nil, fmt.Errorf("fetch column metadata: %w", err)
 	}
 	defer rows.Close()
+
+	type fetchedColumn struct {
+		col     Column
+		typeOID uint32
+	}
+	fetched := make([]fetchedColumn, 0, len(uncachedKeys))
+	typeOIDs := make([]uint32, 0, len(uncachedKeys))
 	for rows.Next() {
 		col := Column{}
 		notNull := false
-		if err := rows.Scan(&col.TableOID, &col.TableName, &col.Name, &col.Number, &notNull); err != nil {
+		var typeOID uint32
+		if err := rows.Scan(&col.TableOID, &col.TableName, &col.Name, &col.Number, &typeOID, &notNull); err != nil {
 			return nil, fmt.Errorf("scan fetch column row: %w", err)
 		}
 		col.Null = !notNull
-		columnCache[ColumnKey{col.TableOID, col.Number}] = col
+		fetched = append(fetched, fetchedColumn{col: col, typeOID: typeOID})
+		typeOIDs = append(typeOIDs, typeOID)
 	}
 	if err := rows.Err(); err != nil {
 		return nil, fmt.Errorf("close fetch column rows: %w", err)
 	}
+
+	types, err := NewTypeFetcher(conn).FindTypesByOIDs(typeOIDs...)
+	if err != nil {
+		return nil, fmt.Errorf("fetch column types: %w", err)
+	}
+
+	columnsMu.Lock()
+	for _, fc := range fetched {
+		colType, ok := types[fc.typeOID]
+		if !ok {
+			columnsMu.Unlock()
+			return nil, fmt.Errorf("missing type for column %s.%s oid=%d", fc.col.TableName, fc.col.Name, fc.typeOID)
+		}
+		fc.col.Type = colType
+		columnCache[ColumnKey{fc.col.TableOID, fc.col.Number}] = fc.col
+	}
+	columnsMu.Unlock()
 
 	return fetchCachedColumns(keys)
 }

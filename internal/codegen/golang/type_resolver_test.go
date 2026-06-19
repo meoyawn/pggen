@@ -60,6 +60,26 @@ func TestTypeResolver_Resolve(t *testing.T) {
 			},
 		},
 		{
+			name:      "domain override",
+			overrides: map[string]string{"show_id": "example.com/custom.ShowID"},
+			pgType:    pg.DomainType{Name: "show_id", BaseType: pg.Text},
+			want: &gotype.ImportType{
+				PkgPath: "example.com/custom",
+				Type: &gotype.OpaqueType{
+					PgType: pg.DomainType{Name: "show_id", BaseType: pg.Text},
+					Name:   "ShowID",
+				},
+			},
+		},
+		{
+			name:   "domain fallback to base type",
+			pgType: pg.DomainType{Name: "show_id", BaseType: pg.Text},
+			want: &gotype.OpaqueType{
+				PgType: pg.Text,
+				Name:   "string",
+			},
+		},
+		{
 			name:      "override pointer",
 			overrides: map[string]string{"custom_type": "*example.com/custom.QualType"},
 			pgType:    pg.BaseType{Name: "custom_type"},

@@ -184,6 +184,23 @@ func TestNewTypeFetcher(t *testing.T) {
 				},
 			},
 		},
+		{
+			name: "domain",
+			schema: texts.Dedent(`
+				CREATE DOMAIN show_id AS text
+					DEFAULT 'shw_default'
+					CHECK (VALUE ~ '^shw_');
+			`),
+			fetchOID: "show_id",
+			wants: []Type{
+				DomainType{
+					Name:       "show_id",
+					HasDefault: true,
+					BaseType:   Text,
+				},
+				Text,
+			},
+		},
 	}
 
 	for _, tt := range tests {
@@ -237,6 +254,7 @@ func TestNewTypeFetcher(t *testing.T) {
 				cmpopts.IgnoreFields(EnumType{}, "ChildOIDs", "ID"),
 				cmpopts.IgnoreFields(CompositeType{}, "ID"),
 				cmpopts.IgnoreFields(ArrayType{}, "ID"),
+				cmpopts.IgnoreFields(DomainType{}, "ID"),
 			}
 			sortTypes(wantTypes)
 			sortTypes(gotTypes)

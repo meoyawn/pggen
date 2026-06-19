@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/jackc/pgx/v5"
 	"github.com/meoyawn/pggen/internal/pgtest"
 	"github.com/meoyawn/pggen/internal/texts"
@@ -25,22 +26,34 @@ func TestFetchColumns(t *testing.T) {
 			"one col null",
 			"CREATE TABLE author ( first_name text );",
 			[]uint16{1},
-			[]Column{{Name: "first_name", TableName: "author", Number: 1, Null: true}},
+			[]Column{{Name: "first_name", TableName: "author", Number: 1, Type: Text, Null: true}},
 		},
 		{
 			"one col not null",
 			"CREATE TABLE author ( first_name text NOT NULL);",
 			[]uint16{1},
-			[]Column{{Name: "first_name", TableName: "author", Number: 1, Null: false}},
+			[]Column{{Name: "first_name", TableName: "author", Number: 1, Type: Text, Null: false}},
 		},
 		{
 			"two col mixed",
 			"CREATE TABLE author ( first_name text NOT NULL, last_name text);",
 			[]uint16{2, 1},
 			[]Column{
-				{Name: "last_name", TableName: "author", Number: 2, Null: true},
-				{Name: "first_name", TableName: "author", Number: 1, Null: false},
+				{Name: "last_name", TableName: "author", Number: 2, Type: Text, Null: true},
+				{Name: "first_name", TableName: "author", Number: 1, Type: Text, Null: false},
 			},
+		},
+		{
+			"domain col",
+			"CREATE DOMAIN author_id AS text; CREATE TABLE author ( id author_id );",
+			[]uint16{1},
+			[]Column{{
+				Name:      "id",
+				TableName: "author",
+				Number:    1,
+				Type:      DomainType{Name: "author_id", BaseType: Text},
+				Null:      true,
+			}},
 		},
 	}
 	for _, tt := range tests {
@@ -61,7 +74,7 @@ func TestFetchColumns(t *testing.T) {
 				col.TableOID = oid
 				tt.want[i] = col
 			}
-			if diff := cmp.Diff(tt.want, cols); diff != "" {
+			if diff := cmp.Diff(tt.want, cols, cmpopts.IgnoreFields(DomainType{}, "ID")); diff != "" {
 				t.Errorf("FetchColumns() query mismatch (-want +got):\n%s", diff)
 			}
 
