@@ -324,6 +324,65 @@ Examples embedded in the repo:
     }
     ```
 
+-   **Shared row structs**: Add `row=<name>` to a `:one`, `:many`, or `:stream`
+    query annotation to share one generated row struct across multiple queries
+    with the same output columns. pggen emits the struct as `<name>Row`.
+
+    ```sql
+    -- name: FindAuthorByID :one row=Author
+    SELECT * FROM author WHERE author_id = pggen.arg('author_id');
+
+    -- name: FindAuthors :many row=Author
+    SELECT * FROM author WHERE first_name = pggen.arg('first_name');
+    ```
+
+    Generates:
+
+    ```go
+    type AuthorRow struct {
+        AuthorID  int32   `json:"author_id" db:"author_id"`
+        FirstName string  `json:"first_name" db:"first_name"`
+        LastName  string  `json:"last_name" db:"last_name"`
+        Suffix    *string `json:"suffix" db:"suffix"`
+    }
+
+    func (q *DBQuerier) FindAuthorByID(ctx context.Context, authorID int32) (AuthorRow, error) {}
+    func (q *DBQuerier) FindAuthors(ctx context.Context, firstName string) ([]AuthorRow, error) {}
+    ```
+
+    Queries sharing a `row=` name must produce identical output columns,
+    including column names, Go field names, Go types, and nullability. pggen
+    reports an error if the row shapes differ. Single-column result queries
+    still return the column type directly, so `row=` only changes generated code
+    for multi-column result rows.
+
+-   **Streaming queries**: Use the `:stream` annotation to process result rows
+    one at a time instead of collecting the whole result set into a slice. pggen
+    generates a method that accepts a `yield` callback and returns only an
+    error.
+
+    ```sql
+    -- name: StreamAuthors :stream
+    SELECT * FROM author WHERE first_name = pggen.arg('first_name');
+    ```
+
+    Generates:
+
+    ```go
+    func (q *DBQuerier) StreamAuthors(
+        ctx context.Context,
+        firstName string,
+        yield func(StreamAuthorsRow) error,
+    ) error {}
+    ```
+
+    The callback runs once for each row. Return an error from the callback to
+    stop streaming early; pggen returns that error to the caller. Single-column
+    `:stream` queries pass the column type directly to `yield`, while
+    multi-column queries use the generated row struct. `row=<name>` works with
+    `:stream` queries when you want to share the row struct with `:one` or
+    `:many` queries that return the same columns.
+
 -   **Acronyms**: Custom acronym support so that `author_id` renders as 
     `AuthorID` instead of `AuthorId`. Supports two formats:
     
@@ -561,7 +620,8 @@ We'll walk through the generated file `author/query.sql.go`:
     const findAuthorsSQL = `SELECT * FROM author WHERE first_name = $1;`
     ```
     
--   pggen generates a row struct for each query named `<query_name>Row`.
+-   pggen generates a row struct for each multi-column result query named
+    `<query_name>Row`.
     pggen transforms the output column names into struct field names from
     `lower_snake_case` to `UpperCamelCase` in [internal/casing/casing.go]. 
     pggen derives JSON struct tags from the Postgres column names. To change the
@@ -580,6 +640,20 @@ We'll walk through the generated file `author/query.sql.go`:
     creating the `<query_name>Row` struct and returns the type directly.  For
     example, the generated query for `SELECT author_id from author` returns 
     `int32`, not a `<query_name>Row` struct.
+
+    To reuse the same row struct across multiple multi-column result queries,
+    add `row=<name>` to each query annotation. pggen emits one `<name>Row`
+    struct and uses it for all queries with that row name. Every query sharing a
+    row name must have the same output column names, Go field names, Go types,
+    and nullability.
+
+    ```sql
+    -- name: FindAuthorByID :one row=Author
+    SELECT * FROM author WHERE author_id = pggen.arg('author_id');
+
+    -- name: FindAuthors :many row=Author
+    SELECT * FROM author WHERE first_name = pggen.arg('first_name');
+    ```
     
     pggen infers struct field types by preparing the query. When Postgres
     prepares a query, Postgres returns the parameter and column types as OIDs.
@@ -631,8 +705,9 @@ We'll walk through the generated file `author/query.sql.go`:
             return fmt.Errorf("query StreamAuthors: %w", err)
         }
 
-        var item StreamAuthorsRow
-        if err := forEachRow(rows, []any{&item.AuthorID, &item.FirstName, &item.LastName, &item.Suffix}, &item, yield); err != nil {
+        if err := forEachRow(rows, func(item *StreamAuthorsRow) []any {
+            return []any{&item.AuthorID, &item.FirstName, &item.LastName, &item.Suffix}
+        }, yield); err != nil {
             return fmt.Errorf("stream StreamAuthors row: %w", err)
         }
         return nil
